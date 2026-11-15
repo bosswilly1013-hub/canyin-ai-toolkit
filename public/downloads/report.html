@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>每月報表</title>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .months button.on { background: #e15a2b; color: #fff; }
+  table { width: 100%; border-collapse: collapse; background: #fffdf8; }
+  td, th { border-bottom: 1px solid #e4ddd0; padding: 4px; font-size: 13px; }
+  .bar { display: inline-block; width: 8px; background: #1d3c34; vertical-align: bottom; }
+  input[type=number] { width: 6rem; }
+</style>
+<header>
+  <b>久沃月報</b>
+  <button type="button" id="mode">門市版</button>
+  <input id="shop" placeholder="店名">
+  <input id="year" type="number">
+  <button type="button" id="exp">匯出 Excel</button>
+  <label>匯入 <input id="imp" type="file" accept=".xlsx,.csv"></label>
+  <button type="button" id="tpl">空白範本</button>
+  <button type="button" id="print">列印</button>
+  <button type="button" id="clear">清空</button>
+  <button type="button" id="demo">還原範例</button>
+</header>
+<div class="months" id="months" style="padding:8px"></div>
+<div id="body" style="padding:12px"></div>
+<script src="/vendor/xlsx.full.min.js"></script>
+<script src="/vendor/jiuwo-kit.js"></script>
+<script>
+const KEY = "jiuwo.tool.report.v2";
+function monthDemo(index) {
+  const sales = 700000 + index * 15000;
+  return { sales, delivery: Math.round(sales * 0.18), guests: 2400 + index * 20, purchases: Math.round(sales * 0.32), expense: 280000, waste: [{ item: "青菜", reason: "進太多", amount: 800 }] };
+}
+const DEMO = { mode: "store", shop: "久沃示範店", year: 2026, month: 1, months: Array.from({ length: 12 }, (_, index) => monthDemo(index)), company: { revenue: 1200000, discount: 20000, begin: 80000, buy: 400000, returns: 10000, end: 90000, variable: [{ name: "包材", amount: 30000 }], fixed: [{ name: "房租", amount: 60000 }, { name: "人事", amount: 280000 }], other: 5000, tax: 0 } };
+let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+if (!state.months) state = structuredClone(DEMO);
+function render() {
+  Jiuwo.save(KEY, state);
+  document.getElementById("mode").textContent = state.mode === "store" ? "門市版" : "公司版";
+  document.getElementById("shop").value = state.shop;
+  document.getElementById("year").value = state.year;
+  document.getElementById("months").innerHTML = state.months.map((month, index) => `<button type="button" class="${state.month===index+1?"on":""}" data-m="${index+1}">${index+1}月${month.sales?"·":""}</button>`).join("") + `<button type="button" id="yearview">年度總覽</button>`;
+  document.querySelectorAll("[data-m]").forEach((button) => button.onclick = () => { state.month = Number(button.dataset.m); render(); });
+  document.getElementById("yearview").onclick = () => { state.month = 0; render(); };
+  if (state.mode === "company") return renderCompany();
+  if (!state.month) return renderYear();
+  const row = state.months[state.month - 1];
+  const prev = state.months[state.month - 2] || row;
+  const margin = row.sales - row.purchases - row.expense;
+  const breakEven = row.purchases + row.expense;
+  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year}／${state.month}月</h2>
+    <p>營業額 <input data-f="sales" type="number" value="${row.sales}"> 外送 <input data-f="delivery" type="number" value="${row.delivery}"> 來客 <input data-f="guests" type="number" value="${row.guests}"> 進貨 <input data-f="purchases" type="number" value="${row.purchases}"> 費用 <input data-f="expense" type="number" value="${row.expense}"></p>
+    <p>本月淨利 ${margin.toLocaleString()} 元。外送比 ${row.sales ? (row.delivery/row.sales*100).toFixed(1) : 0}%。進貨比 ${row.sales ? (row.purchases/row.sales*100).toFixed(1) : 0}% 。兩平約 ${breakEven.toLocaleString()} 元。安全邊際 ${row.sales ? ((row.sales-breakEven)/row.sales*100).toFixed(1) : 0}%。</p>
+    <p>跟上月營業額差 ${(row.sales - prev.sales).toLocaleString()} 元。</p>
+    <h3>損耗</h3>
+    ${row.waste.map((item, index) => `<p><input data-w="item" data-i="${index}" value="${item.item}"> <select data-w="reason" data-i="${index}">${["進太多","備太多","溫度","客訴"].map((reason) => `<option ${item.reason===reason?"selected":""}>${reason}</option>`).join("")}</select> <input data-w="amount" data-i="${index}" type="number" value="${item.amount}"> <button type="button" data-del="${index}">刪</button></p>`).join("")}
+    <button type="button" id="addw">加一筆損耗</button>
+    <p>損耗率 ${row.sales ? (row.waste.reduce((sum, item) => sum + Number(item.amount||0), 0) / row.sales * 100).toFixed(2) : 0}%。</p>`;
+  document.querySelectorAll("[data-f]").forEach((input) => input.onchange = () => { row[input.dataset.f] = Number(input.value); render(); });
+  document.querySelectorAll("[data-w]").forEach((input) => input.onchange = () => { row.waste[input.dataset.i][input.dataset.w] = input.dataset.w === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { row.waste.splice(Number(button.dataset.del), 1); render(); });
+  document.getElementById("addw").onclick = () => { row.waste.push({ item: "品項", reason: "進太多", amount: 0 }); render(); };
+}
+function renderYear() {
+  const max = Math.max(...state.months.map((month) => month.sales), 1);
+  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year} 年度</h2><div style="height:160px;display:flex;align-items:flex-end;gap:8px">${state.months.map((month, index) => `<div><div class="bar" style="height:${month.sales/max*140}px"></div><div>${index+1}</div></div>`).join("")}</div>
+    <table><tr><th>月</th><th>營業額</th><th>外送比</th><th>進貨</th><th>淨利</th></tr>${state.months.map((month, index) => `<tr><td>${index+1}</td><td>${month.sales.toLocaleString()}</td><td>${month.sales?(month.delivery/month.sales*100).toFixed(1):0}%</td><td>${month.purchases.toLocaleString()}</td><td>${(month.sales-month.purchases-month.expense).toLocaleString()}</td></tr>`).join("")}</table>`;
+}
+function renderCompany() {
+  const c = state.company;
+  const netSales = c.revenue - c.discount;
+  const cogs = c.begin + c.buy - c.returns - c.end;
+  const gross = netSales - cogs;
+  const variable = c.variable.reduce((sum, line) => sum + Number(line.amount||0), 0);
+  const fixed = c.fixed.reduce((sum, line) => sum + Number(line.amount||0), 0);
+  const operate = gross - variable - fixed;
+  const before = operate + Number(c.other||0);
+  const tax = before > 0 ? before * 0.2 : 0;
+  document.getElementById("body").innerHTML = `<h2>${state.shop} 公司損益</h2>
+    <p>營業收入 <input data-c="revenue" type="number" value="${c.revenue}"> 減項 <input data-c="discount" type="number" value="${c.discount}"> 淨額 ${netSales.toLocaleString()}</p>
+    <p>期初 <input data-c="begin" type="number" value="${c.begin}"> 進貨 <input data-c="buy" type="number" value="${c.buy}"> 退出 <input data-c="returns" type="number" value="${c.returns}"> 期末 <input data-c="end" type="number" value="${c.end}"> 銷貨成本 ${cogs.toLocaleString()} 毛利 ${gross.toLocaleString()}</p>
+    <h3>變動費用</h3>${c.variable.map((line, index) => `<p><input data-v="name" data-i="${index}" value="${line.name}"> <input data-v="amount" data-i="${index}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addv">加變動</button>
+    <h3>固定費用</h3>${c.fixed.map((line, index) => `<p><input data-x="name" data-i="${index}" value="${line.name}"> <input data-x="amount" data-i="${index}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addx">加固定</button>
+    <p>營業淨利 ${operate.toLocaleString()}。營業外 <input data-c="other" type="number" value="${c.other}">。稅前 ${before.toLocaleString()}。所得稅約 ${Math.round(tax).toLocaleString()}。本期損益 ${Math.round(before-tax).toLocaleString()}。</p>
+    <button type="button" id="copy">複製這組費用到備註</button>`;
+  document.querySelectorAll("[data-c]").forEach((input) => input.onchange = () => { c[input.dataset.c] = Number(input.value); render(); });
+  document.querySelectorAll("[data-v]").forEach((input) => input.onchange = () => { c.variable[input.dataset.i][input.dataset.v] = input.dataset.v === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-x]").forEach((input) => input.onchange = () => { c.fixed[input.dataset.i][input.dataset.x] = input.dataset.x === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
+  document.getElementById("addv").onclick = () => { c.variable.push({ name: "新變動", amount: 0 }); render(); };
+  document.getElementById("addx").onclick = () => { c.fixed.push({ name: "新固定", amount: 0 }); render(); };
+  document.getElementById("copy").onclick = () => { Jiuwo.copy(c.fixed.map((line) => line.name + " " + line.amount).join("\n")); alert("費用已複製"); };
+}
+document.getElementById("mode").onclick = () => { state.mode = state.mode === "store" ? "company" : "store"; render(); };
+document.getElementById("shop").onchange = (event) => { state.shop = event.target.value; Jiuwo.save(KEY, state); };
+document.getElementById("year").onchange = (event) => { state.year = Number(event.target.value); Jiuwo.save(KEY, state); };
+document.getElementById("exp").onclick = () => Jiuwo.xlsx(state.shop + ".xlsx", [["月","營業額","外送","來客","進貨","費用"], ...state.months.map((month, index) => [index+1, month.sales, month.delivery, month.guests, month.purchases, month.expense])]);
+document.getElementById("tpl").onclick = () => Jiuwo.xlsx("月報範本.xlsx", [["月","營業額","外送","來客","進貨","費用"], ...Array.from({length:12}, (_,i)=>[i+1,0,0,0,0,0])]);
+document.getElementById("imp").onchange = async (event) => {
+  const rows = await Jiuwo.read(event.target.files[0]);
+  rows.slice(1, 13).forEach((row, index) => { if (!state.months[index]) return; state.months[index].sales = Number(row[1])||0; state.months[index].delivery = Number(row[2])||0; state.months[index].guests = Number(row[3])||0; state.months[index].purchases = Number(row[4])||0; state.months[index].expense = Number(row[5])||0; });
+  render();
+  alert("已讀回 " + Math.min(12, rows.length - 1) + " 個月。");
+};
+document.getElementById("print").onclick = () => window.print();
+document.getElementById("clear").onclick = () => { state.months = Array.from({length:12}, () => ({ sales:0, delivery:0, guests:0, purchases:0, expense:0, waste:[] })); render(); };
+document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); render(); };
+render();
+</script>

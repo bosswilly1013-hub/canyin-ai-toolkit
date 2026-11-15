@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>店務流程</title>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #fff; padding: 12px; position: sticky; top: 0; }
+  nav a { color: #1d3c34; margin-right: 8px; }
+  section { background: #fffdf8; margin: 12px; padding: 12px; border-radius: 12px; }
+  .tag { border-radius: 999px; padding: 2px 8px; background: #efe7d8; font-size: 12px; }
+</style>
+<header>
+  <b>久沃店務流程</b>
+  <button type="button" id="exp">匯出</button>
+  <button type="button" id="print">列印</button>
+  <span id="count"></span>
+</header>
+<nav id="nav" style="padding:8px 12px"></nav>
+<div id="body"></div>
+<script src="/vendor/jiuwo-kit.js"></script>
+<script>
+const KEY = "jiuwo.tool.flow.v1";
+const STEPS = [
+  ["prep", "備料", "06:00", "對冰箱和叫貨單，缺的先標。"],
+  ["open", "開門", "10:30", "走道、瓦斯、找零。"],
+  ["service", "午市", "11:30", "只改一件出餐問題。"],
+  ["social", "社群", "15:00", "一則今天的菜，不堆標籤。"],
+  ["buy", "叫貨", "16:00", "只改和平均差很多的品項。"],
+  ["dinner", "晚市", "17:30", "交班寫三件未完成。"],
+  ["close", "打烊", "21:00", "四個數字和溫度。"],
+  ["review", "回覆", "21:30", "差評三句，不解釋忙。"],
+  ["week", "週會", "每週一", "只帶一個數字。"],
+];
+let done = Jiuwo.load(KEY, { checked: {}, notes: {} });
+function render() {
+  Jiuwo.save(KEY, done);
+  document.getElementById("nav").innerHTML = STEPS.map((step) => `<a href="#${step[0]}">${step[1]}</a>`).join("");
+  document.getElementById("count").textContent = "已勾 " + Object.values(done.checked).filter(Boolean).length + "／" + STEPS.length;
+  document.getElementById("body").innerHTML = STEPS.map((step) => `<section id="${step[0]}"><p class="tag">${step[2]}</p><h2><label><input data-id="${step[0]}" type="checkbox" ${done.checked[step[0]]?"checked":""}> ${step[1]}</label></h2><p>${step[3]}</p><textarea data-note="${step[0]}">${done.notes[step[0]] || ""}</textarea></section>`).join("") +
+    `<section><h2>一天的順序</h2><ol>${STEPS.map((step) => `<li>${step[2]} ${step[1]}</li>`).join("")}</ol></section>`;
+  document.querySelectorAll("[data-id]").forEach((box) => box.onchange = () => { done.checked[box.dataset.id] = box.checked; render(); });
+  document.querySelectorAll("[data-note]").forEach((box) => box.onchange = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
+}
+document.getElementById("exp").onclick = () => Jiuwo.csv("店務流程.csv", [["時段","步驟","做了","備註"], ...STEPS.map((step) => [step[2], step[1], done.checked[step[0]] ? "是" : "否", done.notes[step[0]] || ""])]);
+document.getElementById("print").onclick = () => window.print();
+render();
+</script>

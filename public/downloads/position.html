@@ -2,39 +2,152 @@
 <html lang="zh-Hant">
 <meta charset="utf-8">
 <title>品牌定位圖</title>
-<body style="font-family:sans-serif;max-width:640px;margin:24px">
-<h1>品牌定位圖</h1>
-<p>橫軸是價格，縱軸是份量。點的位置存在這台裝置。</p>
-<label>菜名 <input id="name"></label>
-<label>價格 1–10 <input id="x" type="range" min="1" max="10"></label>
-<label>份量 1–10 <input id="y" type="range" min="1" max="10"></label>
-<div id="board" style="position:relative;height:280px;border:1px solid #e4ddd0;border-radius:12px;margin:12px 0"></div>
-<p id="out"></p>
-<button id="clear" type="button">清空示範資料</button>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  main { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; padding: 12px; }
+  svg { width: 100%; background: #fffdf8; border-radius: 12px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+</style>
+<header>
+  <b>久沃定位圖</b>
+  <button type="button" id="demo">載入範例</button>
+  <button type="button" id="clear">清空</button>
+  <button type="button" id="png">存成 PNG</button>
+  <button type="button" id="json">存 JSON</button>
+  <label>開啟 JSON <input id="open" type="file" accept=".json"></label>
+  <button type="button" id="print">列印</button>
+</header>
+<main>
+  <div>
+    <input id="title" style="width:100%">
+    <svg id="board" viewBox="0 0 400 400"></svg>
+    <p id="hint"></p>
+  </div>
+  <div>
+    <label>橫軸 <select id="x"></select></label>
+    <label>左 <input id="x0"></label><label>右 <input id="x1"></label>
+    <label>縱軸 <select id="y"></select></label>
+    <label>下 <input id="y0"></label><label>上 <input id="y1"></label>
+    <label>圓的大小代表 <input id="size"></label>
+    <div id="cards"></div>
+    <button type="button" id="add">新增品牌</button>
+    <h3>為什麼打在這裡</h3>
+    <div id="why"></div>
+  </div>
+</main>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.position";
-const demo = { name: "牛肉麵", x: 6, y: 7 };
-function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
-function paint(data) {
-  document.getElementById("name").value = data.name;
-  document.getElementById("x").value = data.x;
-  document.getElementById("y").value = data.y;
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  const dot = document.createElement("div");
-  dot.textContent = data.name;
-  dot.style.cssText = "position:absolute;background:#e15a2b;color:#fff;border-radius:999px;padding:6px 8px";
-  dot.style.left = (Number(data.x) - 1) * 9 + "%";
-  dot.style.bottom = (Number(data.y) - 1) * 9 + "%";
-  board.append(dot);
-  document.getElementById("out").textContent = "價格 " + data.x + "，份量 " + data.y + "。跟隔壁比，不要兩個軸同時加。";
-  localStorage.setItem(KEY, JSON.stringify(data));
+const KEY = "jiuwo.tool.position.v2";
+const AXES = {
+  "價格": ["便宜", "貴"],
+  "品項數": ["少", "多"],
+  "感覺": ["家常", "講究"],
+  "信任理由": ["熟人介紹", "自己吃過"],
+  "風格": ["快速", "坐得久"],
+  "客群": ["附近上班", "特地來"],
+  "要不要自己煮": ["現成", "現做"],
+  "通路": ["只做內用", "內用加外送"],
+  "講究程度": ["吃飽", "挑"],
+};
+const DEMO = {
+  title: "久沃和附近幾家",
+  x: "價格", y: "感覺", x0: "", x1: "", y0: "", y1: "", size: "價位帶",
+  brands: [
+    { name: "久沃", x: 6, y: 7, size: 18, mine: true, tx: 7, ty: 8, why: "份量夠，價格還在附近午餐帶。" },
+    { name: "巷口麵", x: 3, y: 4, size: 14, mine: false, tx: 3, ty: 4, why: "便宜、出餐快。" },
+    { name: "市場熱炒", x: 5, y: 3, size: 22, mine: false, tx: 5, ty: 3, why: "晚上才熱鬧。" },
+  ],
+};
+let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+const board = document.getElementById("board");
+function ends(key, a, b) { return [state[a] || AXES[state[key]][0], state[b] || AXES[state[key]][1]]; }
+function render() {
+  Jiuwo.save(KEY, state);
+  document.getElementById("title").value = state.title;
+  document.getElementById("size").value = state.size;
+  ["x","y"].forEach((axis) => {
+    const select = document.getElementById(axis);
+    if (!select.options.length) select.innerHTML = Object.keys(AXES).map((name) => `<option>${name}</option>`).join("") + "<option>自訂</option>";
+    select.value = state[axis];
+  });
+  const [x0, x1] = ends("x", "x0", "x1");
+  const [y0, y1] = ends("y", "y0", "y1");
+  document.getElementById("x0").value = state.x0;
+  document.getElementById("x1").value = state.x1;
+  document.getElementById("y0").value = state.y0;
+  document.getElementById("y1").value = state.y1;
+  board.innerHTML = `<line x1="200" y1="20" x2="200" y2="380" stroke="#ccc"/><line x1="20" y1="200" x2="380" y2="200" stroke="#ccc"/>
+    <text x="24" y="210">${x0}</text><text x="330" y="210">${x1}</text><text x="204" y="390">${y0}</text><text x="204" y="32">${y1}</text>` +
+    state.brands.map((brand, index) => {
+      const cx = 20 + brand.x / 10 * 360;
+      const cy = 380 - brand.y / 10 * 360;
+      const tx = 20 + (brand.tx || brand.x) / 10 * 360;
+      const ty = 380 - (brand.ty || brand.y) / 10 * 360;
+      return `<circle data-i="${index}" cx="${cx}" cy="${cy}" r="${brand.size}" fill="${brand.mine ? "#1d3c34" : "#e15a2b"}" opacity="0.85"></circle>
+        <text x="${cx+brand.size}" y="${cy}">${brand.name}</text>
+        ${brand.mine ? `<circle cx="${tx}" cy="${ty}" r="${brand.size+8}" fill="none" stroke="#1d3c34" stroke-dasharray="4 3"></circle><line x1="${cx}" y1="${cy}" x2="${tx}" y2="${ty}" stroke="#1d3c34"/>` : ""}`;
+    }).join("");
+  const hints = [];
+  const quads = [0,0,0,0];
+  state.brands.forEach((brand) => { quads[(brand.x >= 5 ? 1 : 0) + (brand.y >= 5 ? 2 : 0)] += 1; });
+  quads.forEach((count, index) => { if (!count) hints.push("有一個象限是空的。"); });
+  for (let i = 0; i < state.brands.length; i++) for (let j = i + 1; j < state.brands.length; j++) {
+    const d = Math.hypot(state.brands[i].x - state.brands[j].x, state.brands[i].y - state.brands[j].y);
+    if (d < 1.5) hints.push(state.brands[i].name + "和" + state.brands[j].name + "太近。");
+  }
+  state.brands.filter((brand) => brand.mine).forEach((brand) => {
+    const d = Math.hypot((brand.tx || brand.x) - brand.x, (brand.ty || brand.y) - brand.y);
+    hints.push(brand.name + "離想去的位置 " + d.toFixed(1) + " 格。");
+  });
+  document.getElementById("hint").textContent = hints.join(" ");
+  document.getElementById("cards").innerHTML = state.brands.map((brand, index) => `<p>${brand.name}<br>
+    左右 <input data-i="${index}" data-f="x" type="number" min="0" max="10" step="0.1" value="${brand.x}">
+    上下 <input data-i="${index}" data-f="y" type="number" min="0" max="10" step="0.1" value="${brand.y}">
+    大小 <input data-i="${index}" data-f="size" type="number" value="${brand.size}">
+    <label><input data-i="${index}" data-f="mine" type="checkbox" ${brand.mine ? "checked" : ""}> 是我的品牌</label>
+    <button type="button" data-del="${index}">刪除</button><br>
+    理由 <input data-i="${index}" data-f="why" value="${brand.why || ""}" style="width:90%"></p>`).join("");
+  document.getElementById("why").innerHTML = state.brands.map((brand) => `<p><b>${brand.name}</b> ${brand.why || ""}</p>`).join("");
+  board.querySelectorAll("circle[data-i]").forEach((circle) => {
+    circle.onpointerdown = (event) => {
+      const move = (ev) => {
+        const rect = board.getBoundingClientRect();
+        const brand = state.brands[circle.dataset.i];
+        brand.x = Math.min(10, Math.max(0, (ev.clientX - rect.left) / rect.width * 10));
+        brand.y = Math.min(10, Math.max(0, 10 - (ev.clientY - rect.top) / rect.height * 10));
+        render();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", () => window.removeEventListener("pointermove", move), { once: true });
+    };
+  });
+  document.querySelectorAll("#cards input").forEach((input) => input.oninput = () => {
+    const brand = state.brands[input.dataset.i];
+    if (input.dataset.f === "mine") brand.mine = input.checked;
+    else if (input.dataset.f === "why") brand.why = input.value;
+    else brand[input.dataset.f] = Number(input.value);
+    if (input.dataset.f === "why") { Jiuwo.save(KEY, state); document.getElementById("why").innerHTML = state.brands.map((item) => `<p><b>${item.name}</b> ${item.why || ""}</p>`).join(""); return; }
+    render();
+    const again = document.querySelector(`#cards input[data-i="${input.dataset.i}"][data-f="${input.dataset.f}"]`);
+    if (again) again.focus();
+  });
+  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.brands.splice(Number(button.dataset.del), 1); render(); });
 }
-let data = read();
-["name", "x", "y"].forEach((id) => document.getElementById(id).addEventListener("input", () => {
-  data[id] = document.getElementById(id).value;
-  paint(data);
-}));
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); data = { ...demo }; paint(data); };
-paint(data);
+["x","y","x0","x1","y0","y1"].forEach((id) => document.getElementById(id).onchange = (event) => { state[id] = event.target.value; render(); });
+document.getElementById("title").oninput = (event) => { state.title = event.target.value; Jiuwo.save(KEY, state); };
+document.getElementById("size").oninput = (event) => { state.size = event.target.value; Jiuwo.save(KEY, state); };
+document.getElementById("add").onclick = () => { state.brands.push({ name: "新品牌", x: 5, y: 5, size: 16, mine: false, tx: 5, ty: 5, why: "" }); render(); };
+document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); render(); };
+document.getElementById("clear").onclick = () => { state.brands = []; render(); };
+document.getElementById("json").onclick = () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "定位圖.json"; link.click(); };
+document.getElementById("open").onchange = async (event) => { state = JSON.parse(await event.target.files[0].text()); render(); };
+document.getElementById("png").onclick = () => {
+  const xml = new XMLSerializer().serializeToString(board);
+  const image = new Image();
+  image.onload = () => { const canvas = document.createElement("canvas"); canvas.width = 800; canvas.height = 800; canvas.getContext("2d").drawImage(image, 0, 0, 800, 800); const link = document.createElement("a"); link.href = canvas.toDataURL("image/png"); link.download = "定位圖.png"; link.click(); };
+  image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+};
+document.getElementById("print").onclick = () => window.print();
+render();
 </script>

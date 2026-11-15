@@ -11,8 +11,8 @@ prompt:
 download: 
 downloadLabel: 
 video: 
-tool: 
-file: 
+tool: /downloads/flow.html
+file: /downloads/flow.html
 ---
 沒寫份量，訊息會被問滿。
 

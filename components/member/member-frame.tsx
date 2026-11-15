@@ -52,10 +52,13 @@ function articleKind(article: Article) {
   return "文章";
 }
 
-function renderBody(body: string, onZoom: (src: string) => void) {
+function renderBody(body: string, onZoom: (src: string) => void, onCopy: (text: string) => void) {
   const chunks = body.split("```");
   return chunks.map((chunk, index) => {
-    if (index % 2 === 1) return <pre key={index} className="code"><code>{chunk.trim()}</code></pre>;
+    if (index % 2 === 1) {
+      const text = chunk.trim();
+      return <div key={index} className="code"><button type="button" onClick={() => onCopy(text)}>複製</button><pre><code>{text}</code></pre></div>;
+    }
     return chunk.split(/\n{2,}/).map((block, blockIndex) => {
       const lines = block.split("\n").filter((line) => line.length > 0);
       if (!lines.length) return null;
@@ -99,6 +102,14 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   const [showTool, setShowTool] = useState(false);
 
   useEffect(() => {
+    const hashPath = location.hash.replace(/^#/, "");
+    if (hashPath.startsWith("/") && hashPath.length > 1) {
+      const path = hashPath.endsWith("/") ? hashPath : `${hashPath}/`;
+      if (path !== location.pathname) {
+        location.replace(path + location.search);
+        return;
+      }
+    }
     // 登入狀態只存在這台裝置，必須等瀏覽器起來才能讀。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthed(localStorage.getItem(authStorageKey) === "ok");
@@ -152,6 +163,19 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   function ping(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(""), 1600);
+  }
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const box = document.createElement("textarea");
+      box.value = text;
+      document.body.append(box);
+      box.select();
+      document.execCommand("copy");
+      box.remove();
+    }
+    ping("已複製");
   }
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -279,7 +303,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
           <header className="overlay-bar no-print">
             <Link href="/">← 回去學習</Link>
             <span>{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
-            <button type="button" onClick={() => { void navigator.clipboard?.writeText(location.origin + `/read/${article.slug}/`).catch(() => undefined); ping("連結已複製"); }}>複製連結</button>
+            <button type="button" onClick={() => void copyText(location.origin + `/read/${article.slug}/`)}>複製連結</button>
           </header>
           <h1>{article.title}</h1>
           <p>{article.summary}</p>
@@ -290,11 +314,11 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
             <button type="button" onClick={() => window.print()}>列印</button>
           </p>
           {article.video ? <VideoPlayer src={article.video} /> : null}
-          {renderBody(article.body, setZoom)}
+          {renderBody(article.body, setZoom, (text) => void copyText(text))}
           {article.prompt ? (
             <div className="code no-print">
               <p>{article.prompt}</p>
-              <button type="button" onClick={() => { void navigator.clipboard?.writeText(article.prompt).catch(() => undefined); ping("提示詞已複製"); }}>複製</button>
+              <button type="button" onClick={() => void copyText(article.prompt)}>複製</button>
             </div>
           ) : null}
           {article.file || article.download ? (

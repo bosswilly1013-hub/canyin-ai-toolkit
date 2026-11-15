@@ -4,51 +4,93 @@
 <title>商圈調查</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
-  body { font-family: sans-serif; margin: 16px; max-width: 880px; }
-  #map { height: 420px; border-radius: 12px; }
-  label { margin-right: 8px; }
+  body { margin: 0; font-family: sans-serif; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  main { display: grid; grid-template-columns: 320px 1fr 280px; }
+  #map { min-height: 70vh; }
+  aside { padding: 10px; overflow: auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 </style>
-<h1>商圈調查</h1>
-<p>以示範店為圓心，看 300、500、800 公尺內有哪些點。選擇存在這台裝置。</p>
-<div id="map"></div>
-<p>
+<header>
+  <b>久沃商圈</b>
+  <input id="q" placeholder="地址或地標，例如高雄車站">
+  <button type="button" id="find">搜尋</button>
   <label><input type="radio" name="r" value="300"> 300 公尺</label>
-  <label><input type="radio" name="r" value="500"> 500 公尺</label>
+  <label><input type="radio" name="r" value="500" checked> 500 公尺</label>
   <label><input type="radio" name="r" value="800"> 800 公尺</label>
-  <button id="reset" type="button">清空示範資料</button>
-</p>
-<ul id="list"></ul>
+  <button type="button" id="add">加入比較</button>
+  <button type="button" id="reset">重新選位置</button>
+</header>
+<main>
+  <aside id="list"></aside>
+  <div id="map"></div>
+  <aside id="stats"></aside>
+</main>
+<p style="padding:8px 12px">人口是步行圈面積對全市密度的粗估，不是戶政司逐里人口。店家來自 OpenStreetMap，抓不到時用示範點。來源：Nominatim、Overpass、OSM。</p>
 <script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.district";
-const shop = { name: "示範店", lat: 22.6273, lng: 120.3014 };
-const spots = [
-  { name: "巷口早餐", lat: 22.6285, lng: 120.3022 },
-  { name: "市場口", lat: 22.631, lng: 120.305 },
-  { name: "學校側門", lat: 22.636, lng: 120.308 },
-  { name: "捷運出口", lat: 22.623, lng: 120.299 }
-];
-function meters(a, b) {
-  const dy = (a.lat - b.lat) * 111000;
-  const dx = (a.lng - b.lng) * 102000;
-  return Math.hypot(dx, dy);
-}
-const map = L.map("map").setView([shop.lat, shop.lng], 15);
+const KEY = "jiuwo.tool.district.v2";
+const saved = Jiuwo.load(KEY, { lat: 22.639, lng: 120.302, radius: 500, label: "高雄車站", compare: [] });
+let center = { lat: saved.lat, lng: saved.lng, label: saved.label || "中心" };
+let radius = saved.radius || 500;
+let places = [];
+const map = L.map("map").setView([center.lat, center.lng], 15);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
-L.marker([shop.lat, shop.lng]).addTo(map).bindPopup(shop.name);
-spots.forEach((spot) => L.circleMarker([spot.lat, spot.lng], { radius: 6, color: "#1d3c34" }).addTo(map).bindPopup(spot.name));
-let circle = L.circle([shop.lat, shop.lng], { radius: 500, color: "#e15a2b" }).addTo(map);
-function show(radius) {
-  localStorage.setItem(KEY, String(radius));
-  circle.setRadius(radius);
-  const inside = spots.filter((spot) => meters(shop, spot) <= radius);
-  document.getElementById("list").innerHTML = inside.map((spot) => "<li>" + spot.name + " · " + Math.round(meters(shop, spot)) + " 公尺</li>").join("") || "<li>這個圈子裡沒有示範點</li>";
+let circle = L.circle([center.lat, center.lng], { radius, color: "#e15a2b" }).addTo(map);
+let marker = L.marker([center.lat, center.lng], { draggable: true }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+function meters(a, b) {
+  return Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 102000);
 }
-const saved = Number(localStorage.getItem(KEY) || 500);
-document.querySelectorAll("input[name=r]").forEach((input) => {
-  input.checked = Number(input.value) === saved;
-  input.onchange = () => show(Number(input.value));
-});
-document.getElementById("reset").onclick = () => { localStorage.removeItem(KEY); show(500); document.querySelector("input[value='500']").checked = true; };
-show(saved);
+async function loadPlaces() {
+  const fallback = [
+    { name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001 },
+    { name: "示範便當", kind: "餐飲", lat: center.lat - 0.001, lng: center.lng + 0.002 },
+    { name: "示範超商", kind: "超商", lat: center.lat + 0.001, lng: center.lng - 0.001 },
+  ];
+  try {
+    const query = `[out:json][timeout:12];(node["amenity"~"restaurant|cafe|fast_food|convenience"](around:${radius},${center.lat},${center.lng}););out 40;`;
+    const response = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
+    if (!response.ok) throw new Error("overpass");
+    const data = await response.json();
+    places = data.elements.filter((item) => item.tags && item.tags.name).map((item) => ({
+      name: item.tags.name,
+      kind: item.tags.amenity === "convenience" ? "超商" : "餐飲",
+      lat: item.lat, lng: item.lon,
+    }));
+    if (!places.length) places = fallback;
+  } catch (error) {
+    places = fallback;
+  }
+  draw();
+}
+function draw() {
+  circle.setLatLng([center.lat, center.lng]);
+  circle.setRadius(radius);
+  marker.setLatLng([center.lat, center.lng]);
+  layer.clearLayers();
+  const inside = places.filter((place) => meters(center, place) <= radius).sort((a, b) => meters(center, a) - meters(center, b));
+  inside.forEach((place) => L.circleMarker([place.lat, place.lng], { radius: 5, color: place.kind === "超商" ? "#c4a15a" : "#1d3c34" }).addTo(layer).bindPopup(place.name));
+  const food = inside.filter((place) => place.kind === "餐飲").length;
+  const shops = inside.filter((place) => place.kind === "超商").length;
+  const area = Math.PI * radius * radius / 1e6;
+  const density = 9000;
+  const people = Math.round(area * density);
+  document.getElementById("list").innerHTML = inside.slice(0, 20).map((place) => `<p>${place.kind} · ${place.name} · ${Math.round(meters(center, place))} 公尺</p>`).join("") || "<p>這個圈子裡沒有店名。</p>";
+  document.getElementById("stats").innerHTML = `<h2>${radius} 公尺</h2><p>${center.label}</p><p>粗估人口 ${people.toLocaleString()}</p><p>面積 ${area.toFixed(2)} 平方公里</p><p>餐飲 ${food}、超商 ${shops}</p><p>每家超商約服務 ${shops ? Math.round(people / shops) : "—"} 人</p><p>比較點 ${ (saved.compare || []).length } 個</p>`;
+  Jiuwo.save(KEY, { lat: center.lat, lng: center.lng, radius, label: center.label, compare: saved.compare || [] });
+}
+document.getElementById("find").onclick = async () => {
+  const found = await Jiuwo.geocode(document.getElementById("q").value);
+  if (!found) { alert("找不到。可試高雄車站、台北車站，或貼緯度,經度。"); return; }
+  center = found;
+  map.setView([found.lat, found.lng], 15);
+  loadPlaces();
+};
+marker.on("dragend", () => { const p = marker.getLatLng(); center = { lat: p.lat, lng: p.lng, label: "拖曳的位置" }; loadPlaces(); });
+document.querySelectorAll("input[name=r]").forEach((input) => { input.checked = Number(input.value) === radius; input.onchange = () => { radius = Number(input.value); loadPlaces(); }; });
+document.getElementById("add").onclick = () => { saved.compare = saved.compare || []; saved.compare.push({ ...center, radius }); draw(); };
+document.getElementById("reset").onclick = () => { center = { lat: 22.639, lng: 120.302, label: "高雄車站" }; radius = 500; loadPlaces(); };
+loadPlaces();
 </script>

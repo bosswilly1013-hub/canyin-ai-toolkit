@@ -4,89 +4,254 @@
 <title>送貨路線</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
-  body { font-family: sans-serif; margin: 16px; max-width: 880px; }
-  #map { height: 420px; border-radius: 12px; margin: 12px 0; }
+  body { margin: 0; font-family: sans-serif; color: #14221c; background: #f6f3ec; }
+  header { display: flex; gap: 8px; align-items: center; padding: 10px 14px; background: #14221c; color: #f4efe6; }
+  header button, .tabs button, .bar button { border: 0; border-radius: 999px; padding: 6px 10px; }
+  .tabs button.on { background: #e15a2b; color: #fff; }
+  main { display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 52px); }
+  aside { padding: 12px; overflow: auto; }
+  #map { min-height: 70vh; }
+  .stop { display: flex; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid #e4ddd0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { border-bottom: 1px solid #e4ddd0; text-align: left; padding: 4px; }
   .pin { background: #e15a2b; color: #fff; border-radius: 50%; width: 22px; height: 22px; line-height: 22px; text-align: center; }
-  label { display: block; margin: 6px 0; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } #map { min-height: 320px; } }
+  @media print { header, .tabs, .bar { display: none; } }
 </style>
-<h1>送貨路線</h1>
-<p>從示範店出發，下一家選最近的點。順序、站名存在這台裝置。地圖是 OpenStreetMap。</p>
-<div id="map"></div>
-<ol id="order"></ol>
-<p>
-  <button id="copy" type="button">複製給 LINE</button>
-  <button id="reset" type="button">清空示範資料</button>
-</p>
-<label>加一站名稱 <input id="name" value="左營"></label>
-<label>緯度 <input id="lat" value="22.68"></label>
-<label>經度 <input id="lng" value="120.30"></label>
-<button id="add" type="button">加入這一站</button>
+<header>
+  <b>久沃送貨路線</b>
+  <span>勾今天要送的店，排出順序</span>
+</header>
+<div class="tabs" style="padding:8px 14px;display:flex;gap:6px">
+  <button type="button" id="tab-plan" class="on">排路線</button>
+  <button type="button" id="tab-shops">店家</button>
+  <button type="button" id="tab-saved">已存的路線</button>
+  <button type="button" id="tab-set">設定</button>
+</div>
+<main>
+  <aside id="panel"></aside>
+  <div id="map"></div>
+</main>
 <script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/xlsx.full.min.js"></script>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.route";
-const DEMO = [
-  { name: "示範店（出發）", lat: 22.6273, lng: 120.3014, home: true },
-  { name: "鼓山", lat: 22.652, lng: 120.281 },
-  { name: "鹽埕", lat: 22.622, lng: 120.281 },
-  { name: "前金", lat: 22.627, lng: 120.292 },
-  { name: "新興", lat: 22.631, lng: 120.312 }
-];
-function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (Array.isArray(saved) && saved.length) return saved;
-  } catch (error) {}
-  return DEMO.map((row) => ({ ...row }));
-}
-function km(a, b) {
-  const dy = (a.lat - b.lat) * 111;
-  const dx = (a.lng - b.lng) * 102;
-  return Math.hypot(dx, dy);
-}
-function orderOf(rows) {
-  const home = rows.find((row) => row.home) || rows[0];
-  const rest = rows.filter((row) => row !== home);
-  const order = [home];
-  let current = home;
-  while (rest.length) {
-    rest.sort((a, b) => km(current, a) - km(current, b));
-    current = rest.shift();
-    order.push(current);
-  }
-  return order;
-}
-let rows = load();
-const map = L.map("map").setView([22.63, 120.3], 13);
+const KEY = "jiuwo.tool.route.v2";
+const DEMO = {
+  warehouse: { name: "久沃中央廚房", address: "高雄車站", lat: 22.639, lng: 120.302 },
+  drivers: ["阿德", "小陳"],
+  shops: [
+    { name: "河堤麵館", area: "鼓山", address: "高雄巨蛋", lat: 22.669, lng: 120.302, note: "10點後才收貨", open: true },
+    { name: "港邊便當", area: "鹽埕", address: "鹽埕", lat: 22.622, lng: 120.281, note: "", open: true },
+    { name: "田裡小館", area: "前金", address: "前金", lat: 22.627, lng: 120.292, note: "", open: true },
+    { name: "灶口熱炒", area: "新興", address: "新興", lat: 22.631, lng: 120.312, note: "午休不收", open: true },
+    { name: "市場鮮魚", area: "三民", address: "高雄車站", lat: 22.645, lng: 120.308, note: "", open: true },
+    { name: "坡地麵店", area: "左營", address: "左營高鐵", lat: 22.687, lng: 120.308, note: "", open: true },
+    { name: "青葉素食", area: "苓雅", address: "苓雅", lat: 22.621, lng: 120.318, note: "走後門", open: true },
+    { name: "巷口廚房", area: "前鎮", address: "前鎮", lat: 22.605, lng: 120.318, note: "", open: true },
+  ],
+  saved: [],
+};
+let state = Jiuwo.load(KEY, DEMO);
+if (!state.shops) state = structuredClone(DEMO);
+let tab = "plan";
+let day = "週一";
+let driver = state.drivers[0] || "";
+let back = true;
+let picked = new Set(state.shops.map((shop) => shop.name));
+let query = "";
+let area = "全部";
+let order = [];
+const map = L.map("map").setView([state.warehouse.lat, state.warehouse.lng], 12);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
 const layer = L.layerGroup().addTo(map);
+
+function km(a, b) {
+  return Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 102);
+}
+function nearest(points, ret) {
+  const home = points[0];
+  const rest = points.slice(1);
+  const path = [home];
+  let cur = home;
+  while (rest.length) {
+    rest.sort((a, b) => km(cur, a) - km(cur, b));
+    cur = rest.shift();
+    path.push(cur);
+  }
+  if (ret) path.push({ ...home, name: "回到" + home.name });
+  return path;
+}
+async function buildRoute() {
+  const home = { ...state.warehouse, home: true };
+  const stops = state.shops.filter((shop) => picked.has(shop.name) && shop.lat && shop.open !== false);
+  const seed = [home, ...stops];
+  try {
+    const coords = seed.map((point) => point.lng + "," + point.lat).join(";");
+    const url = "https://router.project-osrm.org/trip/v1/driving/" + coords + "?source=first&roundtrip=" + back + "&geometries=geojson";
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("osrm");
+    const data = await response.json();
+    const trip = data.trips[0];
+    const seq = data.waypoints.map((point, index) => ({ index, order: point.waypoint_index })).sort((a, b) => a.order - b.order);
+    order = seq.map((item) => seed[item.index]);
+    if (back) order.push({ ...home, name: "回到" + home.name });
+    order.meta = { km: (trip.distance / 1000).toFixed(1), min: Math.round(trip.duration / 60), line: trip.geometry };
+  } catch (error) {
+    order = nearest(seed, back);
+    const dist = order.slice(1).reduce((sum, point, index) => sum + km(order[index], point), 0);
+    order.meta = { km: dist.toFixed(1), min: Math.round(dist / 25 * 60), line: null };
+  }
+  draw();
+  render();
+}
 function draw() {
   layer.clearLayers();
-  const order = orderOf(rows);
-  L.polyline(order.map((point) => [point.lat, point.lng]), { color: "#e15a2b" }).addTo(layer);
+  if (!order.length) return;
+  const latlngs = order.map((point) => [point.lat, point.lng]);
+  if (order.meta && order.meta.line) L.geoJSON(order.meta.line, { style: { color: "#1d3c34", weight: 5 } }).addTo(layer);
+  else L.polyline(latlngs, { color: "#e15a2b" }).addTo(layer);
   order.forEach((point, index) => {
-    L.marker([point.lat, point.lng], { icon: L.divIcon({ className: "pin", html: String(index + 1), iconSize: [22, 22] }) })
-      .addTo(layer)
-      .bindPopup(point.name);
+    L.marker([point.lat, point.lng], { icon: L.divIcon({ className: "pin", html: String(index + 1), iconSize: [22, 22] }) }).addTo(layer).bindPopup(point.name);
   });
-  document.getElementById("order").innerHTML = order.map((point, index) => {
-    const href = "https://www.google.com/maps/dir/?api=1&destination=" + point.lat + "," + point.lng + "&travelmode=driving";
-    return "<li>" + (index + 1) + ". " + point.name + " <a href=\"" + href + "\" target=\"_blank\" rel=\"noreferrer\">Google 導航</a></li>";
-  }).join("");
-  document.getElementById("copy").onclick = () => {
-    const text = "今天路線\n" + order.map((point, index) => (index + 1) + ". " + point.name).join("\n");
-    navigator.clipboard.writeText(text).then(() => { document.getElementById("copy").textContent = "已複製給 LINE"; });
-  };
-  map.fitBounds(order.map((point) => [point.lat, point.lng]), { padding: [20, 20] });
+  map.fitBounds(latlngs, { padding: [20, 20] });
 }
-document.getElementById("add").onclick = () => {
-  rows = rows.concat([{ name: document.getElementById("name").value || "新站", lat: Number(document.getElementById("lat").value), lng: Number(document.getElementById("lng").value) }]);
-  localStorage.setItem(KEY, JSON.stringify(rows));
+function lineText() {
+  return [day + "｜" + driver, ...order.map((point, index) => (index + 1) + ". " + point.name + (point.note ? "（" + point.note + "）" : ""))].join("\n");
+}
+function navLinks() {
+  const chunks = [];
+  for (let i = 0; i < order.length; i += 10) chunks.push(order.slice(i, i + 10));
+  return chunks.map((chunk, index) => {
+    const href = "https://www.google.com/maps/dir/" + chunk.map((point) => point.lat + "," + point.lng).join("/");
+    return `<a href="${href}" target="_blank" rel="noreferrer">第 ${index + 1} 段導航（${chunk.length} 站）</a>`;
+  }).join(" · ");
+}
+function render() {
+  document.querySelectorAll(".tabs button").forEach((button) => button.classList.toggle("on", button.id === "tab-" + tab));
+  const panel = document.getElementById("panel");
+  if (tab === "plan") {
+    const areas = ["全部", ...new Set(state.shops.map((shop) => shop.area))];
+    const shown = state.shops.filter((shop) => (area === "全部" || shop.area === area) && shop.name.includes(query));
+    panel.innerHTML = `
+      <label>星期 <select id="day">${["週一","週二","週三","週四","週五","週六","臨時"].map((item) => `<option ${item===day?"selected":""}>${item}</option>`).join("")}</select></label>
+      <label>司機 <select id="driver">${state.drivers.map((item) => `<option ${item===driver?"selected":""}>${item}</option>`).join("")}</select></label>
+      <label><input id="back" type="checkbox" ${back?"checked":""}> 送完回倉庫</label>
+      <p>起點：${state.warehouse.name}</p>
+      <input id="q" placeholder="搜尋店名" value="${query}">
+      <select id="area">${areas.map((item) => `<option ${item===area?"selected":""}>${item}</option>`).join("")}</select>
+      <button type="button" id="all">這區全勾</button>
+      <button type="button" id="none">清空勾選</button>
+      <div>${shown.map((shop) => `<label class="stop"><input type="checkbox" data-shop="${shop.name}" ${picked.has(shop.name)?"checked":""}> ${shop.name} · ${shop.area} ${shop.note ? "· " + shop.note : ""} ${shop.lat ? "" : "缺・按我補"}</label>`).join("")}</div>
+      <p class="bar"><button type="button" id="go">排路線</button></p>
+      ${order.length ? `<p><b>${order.length} 站</b> · ${order.meta.km} 公里 · 約 ${order.meta.min} 分</p>` + order.map((point, index) => `<div class="stop">${index+1}. ${point.name} <button type="button" data-up="${index}">▲</button><button type="button" data-down="${index}">▼</button></div>`).join("") + `<p>${navLinks()}</p><button type="button" id="copy">複製給 LINE</button> <button type="button" id="keep">存成固定路線</button> <button type="button" id="wipe">清掉重排</button>` : ""}`;
+    panel.querySelectorAll("[data-shop]").forEach((box) => box.onchange = () => { box.checked ? picked.add(box.dataset.shop) : picked.delete(box.dataset.shop); });
+    panel.querySelector("#day").onchange = (event) => { day = event.target.value; };
+    panel.querySelector("#driver").onchange = (event) => { driver = event.target.value; };
+    panel.querySelector("#back").onchange = (event) => { back = event.target.checked; };
+    panel.querySelector("#q").onchange = (event) => { query = event.target.value; render(); };
+    panel.querySelector("#area").onchange = (event) => { area = event.target.value; render(); };
+    panel.querySelector("#all").onclick = () => { shown.forEach((shop) => picked.add(shop.name)); render(); };
+    panel.querySelector("#none").onclick = () => { picked.clear(); render(); };
+    const go = panel.querySelector("#go");
+    if (go) go.onclick = () => buildRoute();
+    panel.querySelectorAll("[data-up]").forEach((button) => button.onclick = () => move(Number(button.dataset.up), -1));
+    panel.querySelectorAll("[data-down]").forEach((button) => button.onclick = () => move(Number(button.dataset.down), 1));
+    const copy = panel.querySelector("#copy");
+    if (copy) copy.onclick = async () => { await Jiuwo.copy(lineText()); copy.textContent = "已複製"; };
+    const keep = panel.querySelector("#keep");
+    if (keep) keep.onclick = () => {
+      const name = prompt("路線名稱", day + "｜" + driver) || (day + "｜" + driver);
+      state.saved.push({ name, day, driver, stops: order.map((point) => point.name) });
+      Jiuwo.save(KEY, state);
+    };
+    const wipe = panel.querySelector("#wipe");
+    if (wipe) wipe.onclick = () => { order = []; render(); };
+  } else if (tab === "shops") {
+    panel.innerHTML = `<table><tr><th>店名</th><th>區域</th><th>備註</th></tr>${state.shops.map((shop, index) => `<tr><td>${shop.name}</td><td>${shop.area}</td><td>${shop.note || ""} ${shop.lat ? "" : "缺・按我補"} <button type="button" data-edit="${index}">改</button> <button type="button" data-del="${index}">刪</button></td></tr>`).join("")}</table>
+      <p>店名 <input id="n"> 區域 <input id="a"> 地址或座標 <input id="addr"> 備註 <input id="note"></p>
+      <button type="button" id="add">新增</button>
+      <button type="button" id="tpl">下載 Excel 範本</button>
+      <button type="button" id="exp">匯出</button>
+      <label>匯入 <input id="imp" type="file" accept=".xlsx,.csv"></label>`;
+    panel.querySelector("#add").onclick = async () => {
+      const found = await Jiuwo.geocode(panel.querySelector("#addr").value);
+      state.shops.push({ name: panel.querySelector("#n").value || "新店", area: panel.querySelector("#a").value || "未分區", address: panel.querySelector("#addr").value, lat: found ? found.lat : null, lng: found ? found.lng : null, note: panel.querySelector("#note").value, open: true });
+      Jiuwo.save(KEY, state); render();
+    };
+    panel.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => {
+      if (!confirm("刪掉這家店？")) return;
+      state.shops.splice(Number(button.dataset.del), 1);
+      Jiuwo.save(KEY, state); render();
+    });
+    panel.querySelectorAll("[data-edit]").forEach((button) => button.onclick = async () => {
+      const shop = state.shops[Number(button.dataset.edit)];
+      const address = prompt("地址或緯度,經度", shop.address || "");
+      if (!address) return;
+      const found = await Jiuwo.geocode(address);
+      shop.address = address;
+      if (found) { shop.lat = found.lat; shop.lng = found.lng; }
+      Jiuwo.save(KEY, state); render();
+    });
+    panel.querySelector("#tpl").onclick = () => Jiuwo.xlsx("店家範本.xlsx", [["店名","區域","地址","緯度","經度","備註"]]);
+    panel.querySelector("#exp").onclick = () => Jiuwo.xlsx("店家.xlsx", [["店名","區域","地址","緯度","經度","備註"], ...state.shops.map((shop) => [shop.name, shop.area, shop.address, shop.lat, shop.lng, shop.note])]);
+    panel.querySelector("#imp").onchange = async (event) => {
+      const rows = await Jiuwo.read(event.target.files[0]);
+      const mode = confirm("確定＝取代現有店家，取消＝附加") ? "replace" : "append";
+      const next = rows.slice(1).filter((row) => row[0]).map((row) => ({ name: row[0], area: row[1] || "未分區", address: row[2] || "", lat: Number(row[3]) || null, lng: Number(row[4]) || null, note: row[5] || "", open: true }));
+      state.shops = mode === "replace" ? next : state.shops.concat(next);
+      Jiuwo.save(KEY, state); render();
+    };
+  } else if (tab === "saved") {
+    panel.innerHTML = state.saved.map((item, index) => `<p><b>${item.name}</b><br><button type="button" data-open="${index}">叫出來改</button> <button type="button" data-line="${index}">LINE 文字</button> <button type="button" data-del="${index}">刪除</button></p>`).join("") || "<p>還沒有存路線。</p>";
+    panel.querySelectorAll("[data-open]").forEach((button) => button.onclick = () => {
+      const item = state.saved[Number(button.dataset.open)];
+      picked = new Set(item.stops);
+      day = item.day; driver = item.driver; tab = "plan"; buildRoute();
+    });
+    panel.querySelectorAll("[data-line]").forEach((button) => button.onclick = () => Jiuwo.copy(state.saved[Number(button.dataset.line)].stops.join("\n")));
+    panel.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.saved.splice(Number(button.dataset.del), 1); Jiuwo.save(KEY, state); render(); });
+  } else {
+    panel.innerHTML = `<p>倉庫 <input id="wname" value="${state.warehouse.name}"> <input id="waddr" value="${state.warehouse.address || ""}"></p>
+      <button type="button" id="wsave">用地址找倉庫</button>
+      <p>司機 <input id="dnew"> <button type="button" id="dadd">加司機</button></p>
+      <ul>${state.drivers.map((name, index) => `<li>${name} <button type="button" data-dd="${index}">刪</button></li>`).join("")}</ul>
+      <button type="button" id="backup">下載備份</button>
+      <label>從備份還原 <input id="restore" type="file" accept=".json"></label>
+      <button type="button" id="empty">全部清空</button>
+      <button type="button" id="demo">清空示範資料</button>`;
+    panel.querySelector("#wsave").onclick = async () => {
+      const found = await Jiuwo.geocode(panel.querySelector("#waddr").value);
+      state.warehouse.name = panel.querySelector("#wname").value || state.warehouse.name;
+      state.warehouse.address = panel.querySelector("#waddr").value;
+      if (found) { state.warehouse.lat = found.lat; state.warehouse.lng = found.lng; }
+      Jiuwo.save(KEY, state); alert(found ? "倉庫已對到" + found.source : "找不到，請改貼緯度,經度");
+    };
+    panel.querySelector("#dadd").onclick = () => { const name = panel.querySelector("#dnew").value.trim(); if (name) state.drivers.push(name); Jiuwo.save(KEY, state); render(); };
+    panel.querySelectorAll("[data-dd]").forEach((button) => button.onclick = () => { state.drivers.splice(Number(button.dataset.dd), 1); Jiuwo.save(KEY, state); render(); });
+    panel.querySelector("#backup").onclick = () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "路線備份.json"; link.click(); };
+    panel.querySelector("#restore").onchange = async (event) => { state = JSON.parse(await event.target.files[0].text()); Jiuwo.save(KEY, state); render(); };
+    panel.querySelector("#empty").onclick = () => { if (!confirm("清掉全部店家和路線？")) return; state = { warehouse: state.warehouse, drivers: [], shops: [], saved: [] }; Jiuwo.save(KEY, state); render(); };
+    panel.querySelector("#demo").onclick = () => { Jiuwo.clear(KEY); state = structuredClone(DEMO); picked = new Set(state.shops.map((shop) => shop.name)); render(); };
+  }
+}
+function move(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= order.length) return;
+  const item = order.splice(index, 1)[0];
+  order.splice(next, 0, item);
   draw();
-};
-document.getElementById("reset").onclick = () => {
-  localStorage.removeItem(KEY);
-  rows = DEMO.map((row) => ({ ...row }));
-  draw();
-};
-draw();
+  render();
+}
+document.getElementById("tab-plan").onclick = () => { tab = "plan"; render(); };
+document.getElementById("tab-shops").onclick = () => { tab = "shops"; render(); };
+document.getElementById("tab-saved").onclick = () => { tab = "saved"; render(); };
+document.getElementById("tab-set").onclick = () => { tab = "set"; render(); };
+map.on("click", (event) => {
+  if (tab !== "set") return;
+  state.warehouse.lat = event.latlng.lat;
+  state.warehouse.lng = event.latlng.lng;
+  Jiuwo.save(KEY, state);
+});
+render();
 </script>

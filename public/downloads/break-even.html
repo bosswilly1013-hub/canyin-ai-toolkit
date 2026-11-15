@@ -2,36 +2,89 @@
 <html lang="zh-Hant">
 <meta charset="utf-8">
 <title>損益兩平</title>
-<body style="font-family:sans-serif;max-width:520px;margin:24px">
-<h1>損益兩平</h1>
-<p>固定成本除以每位客人留下的錢。數字存在這台裝置。</p>
-<label>房租 <input id="rent" type="number"></label>
-<label>人事 <input id="labor" type="number"></label>
-<label>水電 <input id="util" type="number"></label>
-<label>其他 <input id="other" type="number"></label>
-<label>平均客單 <input id="ticket" type="number"></label>
-<label>食材比（0.32 代表 32%）<input id="food" type="number" step="0.01"></label>
-<p id="out"></p>
-<button id="clear" type="button">清空示範資料</button>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  main { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; padding: 12px; }
+  section { background: #fffdf8; border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  input[type=number] { width: 7rem; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+</style>
+<header>
+  <b>久沃損益兩平</b>
+  <button type="button" id="mode">門市版</button>
+  <button type="button" id="add">加成本項目</button>
+  <button type="button" id="csv">匯出 CSV</button>
+  <button type="button" id="print">列印</button>
+  <button type="button" id="clear">清空</button>
+  <button type="button" id="demo">還原範例</button>
+</header>
+<main>
+  <div id="form"></div>
+  <aside id="out"></aside>
+</main>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.break-even";
-const fields = ["rent", "labor", "util", "other", "ticket", "food"];
-const demo = { rent: 60000, labor: 180000, util: 15000, other: 20000, ticket: 180, food: 0.32 };
-function read() {
-  try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; }
-  catch { return { ...demo }; }
+const KEY = "jiuwo.tool.break-even.v2";
+const DEMO = {
+  mode: "store",
+  sales: 900000, days: 26, ticket: 180, want: 80000,
+  lines: [
+    { name: "食材", amount: 280000, kind: "變動" },
+    { name: "房租", amount: 60000, kind: "固定" },
+    { name: "人事", amount: 220000, kind: "固定" },
+    { name: "水電", amount: 18000, kind: "固定" },
+  ],
+  discount: 0,
+};
+let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+function compute() {
+  const variable = state.lines.filter((line) => line.kind === "變動").reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const fixed = state.lines.filter((line) => line.kind === "固定").reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  const rate = state.sales > 0 ? variable / state.sales : 0;
+  const contribution = 1 - rate;
+  const breakSales = contribution > 0 ? fixed / contribution : 0;
+  const price = state.ticket * (1 - state.discount / 100);
+  const perGuest = price * contribution;
+  const guests = perGuest > 0 ? breakSales / state.days / perGuest * price / state.ticket : 0;
+  const profit = state.sales - variable - fixed;
+  const safety = state.sales > 0 ? (state.sales - breakSales) / state.sales : 0;
+  const targetSales = contribution > 0 ? (fixed + Number(state.want || 0)) / contribution : 0;
+  const discounted = contribution > 0 ? fixed / (contribution * (1 - state.discount / 100) || contribution) : 0;
+  return { variable, fixed, rate, contribution, breakSales, guests: breakSales / state.days / (state.ticket || 1), profit, safety, targetSales, extra: state.sales > 0 ? (discounted - breakSales) / breakSales : 0 };
 }
-function write() {
-  const data = {};
-  fields.forEach((id) => { data[id] = document.getElementById(id).value; });
-  localStorage.setItem(KEY, JSON.stringify(data));
-  const fixed = ["rent", "labor", "util", "other"].reduce((sum, id) => sum + Number(data[id] || 0), 0);
-  const each = Number(data.ticket) * (1 - Number(data.food));
-  const people = each > 0 ? Math.ceil(fixed / each) : 0;
-  document.getElementById("out").textContent = "一個月固定 " + fixed + " 元。每位客人約留下 " + Math.round(each) + " 元。一天約要 " + Math.ceil(people / 30) + " 位，一個月 " + people + " 位。";
+function render() {
+  Jiuwo.save(KEY, state);
+  document.getElementById("mode").textContent = state.mode === "store" ? "門市版" : "公司版";
+  document.getElementById("form").innerHTML = `<section><h2>基本</h2>
+    <label>月營業額 <input id="sales" type="number" value="${state.sales}"></label>
+    <label>營業天數 <input id="days" type="number" value="${state.days}"></label>
+    <label>客單價 <input id="ticket" type="number" value="${state.ticket}"></label>
+    <label>想賺多少 <input id="want" type="number" value="${state.want}"></label></section>
+    <section><h2>成本</h2>${state.lines.map((line, index) => `<p><input data-n="${index}" value="${line.name}"> <input data-a="${index}" type="number" value="${line.amount}">
+      <select data-k="${index}"><option ${line.kind==="變動"?"selected":""}>變動</option><option ${line.kind==="固定"?"selected":""}>固定</option></select>
+      <button type="button" data-del="${index}">刪</button> ${state.sales? (line.amount/state.sales*100).toFixed(1):0}%</p>`).join("")}</section>
+    <section><h2>打折</h2><label>打掉幾 % <input id="discount" type="range" min="0" max="40" value="${state.discount}"> ${state.discount}%</label></section>`;
+  const result = compute();
+  document.getElementById("out").innerHTML = `<section><h2>損益兩平 ${Math.round(result.breakSales).toLocaleString()} 元</h2>
+    <p>每天約 ${Math.round(result.breakSales / (state.days || 1)).toLocaleString()} 元，約 ${result.guests.toFixed(0)} 位。</p>
+    <p>目前${result.profit >= 0 ? "賺" : "虧"} ${Math.abs(Math.round(result.profit)).toLocaleString()} 元。</p>
+    <p>變動成本率 ${(result.rate*100).toFixed(1)}%，邊際貢獻 ${(result.contribution*100).toFixed(1)}%。</p>
+    <p>安全邊際 ${(result.safety*100).toFixed(1)}%。${result.safety < 0.1 ? "低於一成，先不要加折扣。" : "還有一點緩衝。"}</p>
+    <p>要賺到想要的數字，營業額要 ${Math.round(result.targetSales).toLocaleString()} 元。</p>
+    <p>若打掉 ${state.discount}%，兩平營業額要再多 ${(result.extra*100).toFixed(1)}%。</p></section>`;
+  ["sales","days","ticket","want"].forEach((id) => document.getElementById(id).onchange = (event) => { state[id] = Number(event.target.value); render(); });
+  document.getElementById("discount").onchange = (event) => { state.discount = Number(event.target.value); render(); };
+  document.querySelectorAll("[data-n]").forEach((input) => input.onchange = () => { state.lines[input.dataset.n].name = input.value; Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-a]").forEach((input) => input.onchange = () => { state.lines[input.dataset.a].amount = Number(input.value); render(); });
+  document.querySelectorAll("[data-k]").forEach((input) => input.onchange = () => { state.lines[input.dataset.k].kind = input.value; render(); });
+  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.lines.splice(Number(button.dataset.del), 1); render(); });
 }
-const saved = read();
-fields.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); fields.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
-write();
+document.getElementById("mode").onclick = () => { state.mode = state.mode === "store" ? "company" : "store"; if (state.mode === "company" && !state.lines.some((line) => line.name === "總部人事")) state.lines.push({ name: "總部人事", amount: 80000, kind: "固定" }); render(); };
+document.getElementById("add").onclick = () => { state.lines.push({ name: "新項目", amount: 0, kind: "固定" }); render(); };
+document.getElementById("csv").onclick = () => { const result = compute(); Jiuwo.csv("損益兩平.csv", [["營業額", state.sales], ["兩平", Math.round(result.breakSales)], ["安全邊際", result.safety]]); };
+document.getElementById("print").onclick = () => window.print();
+document.getElementById("clear").onclick = () => { state.lines = []; state.sales = 0; render(); };
+document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); render(); };
+render();
 </script>

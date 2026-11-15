@@ -1,33 +1,94 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
-<title>外送試算</title>
-<body style="font-family:sans-serif;max-width:520px;margin:24px">
-<h1>外送試算</h1>
-<p>店內價、食材、抽成，算出要賣多少才留得住毛利。數字存在這台裝置。</p>
-<label>店內價 <input id="price" type="number"></label>
-<label>食材 <input id="cost" type="number"></label>
-<label>抽成 % <input id="fee" type="number"></label>
-<label>想留的毛利 % <input id="keep" type="number"></label>
-<p id="out"></p>
-<button id="clear" type="button">清空示範資料</button>
+<title>外送定價</title>
+<style>
+  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  table { width: 100%; border-collapse: collapse; background: #fffdf8; }
+  td, th { border-bottom: 1px solid #e4ddd0; padding: 4px; font-size: 13px; }
+  .bad { background: #ffd6d2; } .mid { background: #ffe8c2; } .ok { background: #dff3e4; }
+  input[type=number] { width: 4.5rem; }
+</style>
+<header>
+  <b>久沃外送定價</b>
+  <label>進位 <select id="round"><option>1</option><option>5</option><option selected>10</option></select> 元</label>
+  <button type="button" id="addp">加平台</button>
+  <button type="button" id="add">新增一道</button>
+  <button type="button" id="tpl">下載範本</button>
+  <label>匯入 <input id="imp" type="file" accept=".xlsx,.csv"></label>
+  <button type="button" id="exp">匯出結果</button>
+  <button type="button" id="clear">清空</button>
+  <button type="button" id="print">列印</button>
+</header>
+<div id="cards" style="display:flex;gap:8px;padding:12px;flex-wrap:wrap"></div>
+<div style="padding:0 12px 24px;overflow:auto"><table id="grid"></table></div>
+<script src="/vendor/xlsx.full.min.js"></script>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.delivery";
-const demo = { price: 120, cost: 40, fee: 30, keep: 30 };
-const ids = Object.keys(demo);
-function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
-function write() {
-  const data = {};
-  ids.forEach((id) => { data[id] = document.getElementById(id).value; });
-  localStorage.setItem(KEY, JSON.stringify(data));
-  const remain = 1 - Number(data.fee) / 100 - Number(data.keep) / 100;
-  const need = remain > 0 ? Math.ceil(Number(data.cost) / remain) : 0;
-  document.getElementById("out").textContent = remain <= 0
-    ? "抽成加想留的毛利已經超過 100%，這道不適合上架。"
-    : "外送價大約 " + need + " 元。店內價是 " + data.price + " 元。";
+const KEY = "jiuwo.tool.delivery.v2";
+const DEMO = {
+  round: 10,
+  platforms: [{ name: "平台甲", fee: 30 }, { name: "平台乙", fee: 35 }],
+  dishes: [
+    { name: "紅燒牛肉麵", cat: "麵食", cost: 58, price: 180, mine: {} },
+    { name: "滷肉飯", cat: "飯", cost: 28, price: 70, mine: {} },
+    { name: "燙青菜", cat: "菜", cost: 18, price: 50, mine: {} },
+  ],
+};
+let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+function roundTo(value) { const step = Number(state.round) || 1; return Math.ceil(value / step) * step; }
+function gross(price, cost) { return price > 0 ? (price - cost) / price : 0; }
+function render() {
+  Jiuwo.save(KEY, state);
+  const shop = state.dishes.filter((dish) => dish.price > 0);
+  const shopAvg = shop.length ? shop.reduce((sum, dish) => sum + gross(dish.price, dish.cost), 0) / shop.length : 0;
+  let loss = 0;
+  state.dishes.forEach((dish) => state.platforms.forEach((platform) => {
+    const mine = Number((dish.mine || {})[platform.name] || 0);
+    if (mine && mine < dish.cost) loss += 1;
+  }));
+  document.getElementById("cards").innerHTML = `<div>店內平均毛利 <b>${(shopAvg*100).toFixed(1)}%</b></div><div>你的外送價低於成本 <b>${loss}</b> 道</div>` +
+    state.platforms.map((platform, index) => `<div>${platform.name} 抽成 <input data-fee="${index}" type="number" value="${platform.fee}">% <button type="button" data-delp="${index}">刪</button></div>`).join("");
+  const head = `<tr><th>菜名</th><th>分類</th><th>成本</th><th>店內價</th><th>店內毛利</th>${state.platforms.map((platform) => `<th>${platform.name} 要賣多少</th><th>你的外送價</th><th>外送毛利</th>`).join("")}<th></th></tr>`;
+  document.getElementById("grid").innerHTML = head + state.dishes.map((dish, index) => {
+    const cells = state.platforms.map((platform) => {
+      const need = roundTo(dish.cost / (1 - platform.fee / 100));
+      const mine = Number((dish.mine || {})[platform.name] || "");
+      const g = mine ? gross(mine * (1 - platform.fee / 100), dish.cost) : null;
+      const klass = g == null ? "" : g < 0 ? "bad" : g < gross(dish.price, dish.cost) ? "mid" : "ok";
+      return `<td>${need || ""}</td><td><input data-mine="${index}" data-p="${platform.name}" type="number" value="${mine || ""}"></td><td class="${klass}">${g == null ? "" : (g*100).toFixed(1) + "%"}</td>`;
+    }).join("");
+    return `<tr><td><input data-f="name" data-i="${index}" value="${dish.name}"></td><td><input data-f="cat" data-i="${index}" value="${dish.cat}"></td><td><input data-f="cost" data-i="${index}" type="number" value="${dish.cost}"></td><td><input data-f="price" data-i="${index}" type="number" value="${dish.price}"></td><td>${(gross(dish.price, dish.cost)*100).toFixed(1)}%</td>${cells}<td><button type="button" data-del="${index}">刪</button></td></tr>`;
+  }).join("");
+  document.querySelectorAll("[data-f]").forEach((input) => input.onchange = () => {
+    const dish = state.dishes[input.dataset.i];
+    dish[input.dataset.f] = input.dataset.f === "name" || input.dataset.f === "cat" ? input.value : Number(input.value);
+    render();
+  });
+  document.querySelectorAll("[data-mine]").forEach((input) => input.onchange = () => {
+    const dish = state.dishes[input.dataset.i];
+    dish.mine = dish.mine || {};
+    dish.mine[input.dataset.p] = Number(input.value);
+    render();
+  });
+  document.querySelectorAll("[data-fee]").forEach((input) => input.onchange = () => { state.platforms[input.dataset.fee].fee = Number(input.value); render(); });
+  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.dishes.splice(Number(button.dataset.del), 1); render(); });
+  document.querySelectorAll("[data-delp]").forEach((button) => button.onclick = () => { state.platforms.splice(Number(button.dataset.delp), 1); render(); });
 }
-const saved = read();
-ids.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
-write();
+document.getElementById("round").onchange = (event) => { state.round = Number(event.target.value); render(); };
+document.getElementById("add").onclick = () => { state.dishes.push({ name: "新菜", cat: "", cost: 0, price: 0, mine: {} }); render(); };
+document.getElementById("addp").onclick = () => { const name = prompt("平台名稱", "平台"); if (name) { state.platforms.push({ name, fee: 30 }); render(); } };
+document.getElementById("tpl").onclick = () => Jiuwo.xlsx("外送菜單範本.xlsx", [["菜名","分類","成本","店內價"]]);
+document.getElementById("exp").onclick = () => Jiuwo.xlsx("外送定價.xlsx", [["菜名","分類","成本","店內價"], ...state.dishes.map((dish) => [dish.name, dish.cat, dish.cost, dish.price])]);
+document.getElementById("imp").onchange = async (event) => {
+  const rows = await Jiuwo.read(event.target.files[0]);
+  const next = rows.slice(1).filter((row) => row[0]).map((row) => ({ name: row[0], cat: row[1] || "", cost: Number(row[2]) || 0, price: Number(row[3]) || 0, mine: {} }));
+  const replace = confirm("確定＝取代現有菜單，取消＝附加在後面");
+  state.dishes = replace ? next : state.dishes.concat(next);
+  render();
+};
+document.getElementById("clear").onclick = () => { state.dishes = []; render(); };
+document.getElementById("print").onclick = () => window.print();
+render();
 </script>

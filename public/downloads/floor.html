@@ -1,41 +1,161 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
-<title>店面走道</title>
-<body style="font-family:sans-serif;max-width:640px;margin:24px">
-<h1>店面走道</h1>
-<p>拖動桌子。走道少於 75 公分會提醒。位置存在這台裝置。</p>
-<div id="room" style="position:relative;height:360px;background:#f6f3ec;border:1px solid #e4ddd0;border-radius:12px"></div>
-<p id="warn"></p>
-<label>走道寬（公分）<input id="aisle" type="number"></label>
-<button id="clear" type="button">清空示範資料</button>
+<title>店面平面圖</title>
+<style>
+  body { margin: 0; font-family: sans-serif; background: #f3f1ea; color: #14221c; }
+  header { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; background: #14221c; color: #fff; }
+  main { display: grid; grid-template-columns: 220px 1fr 240px; }
+  #room { position: relative; height: 78vh; background-image: linear-gradient(#ddd 1px, transparent 1px), linear-gradient(90deg, #ddd 1px, transparent 1px); background-size: 20px 20px; overflow: auto; }
+  .item { position: absolute; border: 1px solid #14221c; background: #fff6e8; font-size: 12px; display: grid; place-items: center; cursor: grab; }
+  aside { padding: 8px; overflow: auto; font-size: 14px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  @media print { header { display: none; } }
+</style>
+<header>
+  <b>久沃平面圖</b>
+  <button type="button" id="undo">復原</button>
+  <button type="button" id="redo">重做</button>
+  <label>寬 <input id="w" type="number" style="width:4rem"></label>
+  <label>深 <input id="d" type="number" style="width:4rem"></label>
+  <label>走道至少 <input id="aisle" type="number" style="width:4rem"> 公分</label>
+  <button type="button" id="check">走道檢查</button>
+  <button type="button" id="json">存專案</button>
+  <label>開專案 <input id="open" type="file" accept=".json"></label>
+  <button type="button" id="csv">設備清單</button>
+  <button type="button" id="print">列印</button>
+  <button type="button" id="demo">看範例</button>
+  <button type="button" id="blank">空白</button>
+</header>
+<main>
+  <aside id="lib"></aside>
+  <div id="room"></div>
+  <aside id="info"></aside>
+</main>
+<script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.floor";
-const demo = { x: 80, y: 60, aisle: 75 };
-const room = document.getElementById("room");
-const table = document.createElement("div");
-table.textContent = "四桌";
-table.style.cssText = "position:absolute;width:90px;height:60px;background:#1d3c34;color:#fff;border-radius:8px;display:grid;place-items:center;cursor:grab";
-room.append(table);
-function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
-function paint(data) {
-  table.style.left = data.x + "px";
-  table.style.top = data.y + "px";
-  document.getElementById("aisle").value = data.aisle;
-  document.getElementById("warn").textContent = Number(data.aisle) < 75 ? "走道不到 75 公分，兩個人會卡住。" : "走道有 75 公分以上。";
-  localStorage.setItem(KEY, JSON.stringify(data));
+const KEY = "jiuwo.tool.floor.v2";
+const LIB = [
+  ["四門冰箱", 120, 70], ["工作台", 150, 70], ["水槽", 90, 60], ["雙口炒台", 120, 70], ["出餐台", 160, 70],
+  ["POS", 80, 50], ["四人桌", 120, 75], ["兩人桌", 70, 70], ["六人桌", 180, 80], ["層架", 90, 40],
+  ["飲料台", 120, 60], ["瓦斯爐", 90, 70], ["油炸機", 60, 60], ["蒸箱", 70, 70], ["烤箱", 80, 70],
+  ["洗手台", 50, 40], ["柱子", 40, 40], ["單開門", 90, 15], ["雙開門", 140, 15], ["窗", 120, 15],
+  ["鐵捲門", 240, 20], ["廁所", 140, 120], ["樓梯", 120, 250], ["吧台", 180, 60], ["冰箱工作台", 150, 70],
+  ["洗碗機", 60, 60], ["製冰機", 50, 50], ["冷藏展示", 120, 60], ["熱食保溫", 90, 60], ["備餐台", 180, 70],
+];
+const DEMO = { w: 800, d: 500, aisle: 90, items: [
+  { name: "出餐台", w: 160, h: 70, x: 40, y: 40 },
+  { name: "四門冰箱", w: 120, h: 70, x: 220, y: 40 },
+  { name: "四人桌", w: 120, h: 75, x: 80, y: 220 },
+  { name: "四人桌", w: 120, h: 75, x: 280, y: 220 },
+  { name: "POS", w: 80, h: 50, x: 40, y: 360 },
+]};
+let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+let past = []; let future = []; let selected = 0;
+const scale = 0.6;
+function snapshot() { past.push(JSON.stringify(state)); future = []; if (past.length > 30) past.shift(); }
+function persist() { Jiuwo.save(KEY, state); draw(); }
+function overlaps(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+function gap(a, b) {
+  const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
+  const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
+  if (dx === 0 && dy === 0) return 0;
+  if (dx === 0) return dy;
+  if (dy === 0) return dx;
+  return Math.hypot(dx, dy);
 }
-let data = read();
-paint(data);
-let drag = null;
-table.onpointerdown = (event) => { drag = { dx: event.clientX - data.x, dy: event.clientY - data.y }; table.setPointerCapture(event.pointerId); };
-table.onpointermove = (event) => {
-  if (!drag) return;
-  data.x = Math.max(0, event.clientX - drag.dx);
-  data.y = Math.max(0, event.clientY - drag.dy);
-  paint(data);
-};
-table.onpointerup = () => { drag = null; };
-document.getElementById("aisle").oninput = () => { data.aisle = Number(document.getElementById("aisle").value); paint(data); };
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); data = { ...demo }; paint(data); };
+function problems() {
+  const notes = [];
+  state.items.forEach((item, index) => {
+    if (item.x < 0 || item.y < 0 || item.x + item.w > state.w || item.y + item.h > state.d) notes.push(item.name + "超出牆");
+    state.items.slice(index + 1).forEach((other) => {
+      if (overlaps(item, other)) notes.push(item.name + "和" + other.name + "重疊");
+      else if (gap(item, other) < state.aisle && gap(item, other) > 0) notes.push(item.name + "和" + other.name + "走道只有 " + Math.round(gap(item, other)) + " 公分");
+    });
+  });
+  return notes;
+}
+function draw() {
+  const room = document.getElementById("room");
+  room.innerHTML = "";
+  room.style.width = "100%";
+  const box = document.createElement("div");
+  box.style.cssText = `position:relative;width:${state.w * scale}px;height:${state.d * scale}px;border:3px solid #1d3c34`;
+  state.items.forEach((item, index) => {
+    const el = document.createElement("div");
+    el.className = "item";
+    el.textContent = item.name;
+    el.style.left = item.x * scale + "px";
+    el.style.top = item.y * scale + "px";
+    el.style.width = item.w * scale + "px";
+    el.style.height = item.h * scale + "px";
+    el.style.outline = index === selected ? "2px solid #e15a2b" : "";
+    el.onpointerdown = (event) => {
+      selected = index;
+      snapshot();
+      const start = { x: event.clientX, y: event.clientY, ox: item.x, oy: item.y };
+      const move = (ev) => { item.x = Math.round(start.ox + (ev.clientX - start.x) / scale); item.y = Math.round(start.oy + (ev.clientY - start.y) / scale); Jiuwo.save(KEY, state); draw(); };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", () => window.removeEventListener("pointermove", move), { once: true });
+    };
+    box.append(el);
+  });
+  room.append(box);
+  const item = state.items[selected];
+  document.getElementById("w").value = state.w;
+  document.getElementById("d").value = state.d;
+  document.getElementById("aisle").value = state.aisle;
+  document.getElementById("info").innerHTML = item ? `<h3>${item.name}</h3>
+    <label>名稱 <input id="name" value="${item.name}"></label>
+    <label>寬 <input id="iw" type="number" value="${item.w}"></label>
+    <label>深 <input id="ih" type="number" value="${item.h}"></label>
+    <label>X <input id="ix" type="number" value="${item.x}"></label>
+    <label>Y <input id="iy" type="number" value="${item.y}"></label>
+    <button type="button" id="dup">複製</button> <button type="button" id="del">刪除</button>
+    <h3>檢查</h3><ul>${problems().map((note) => `<li>${note}</li>`).join("") || "<li>目前沒有重疊或過窄走道。</li>"}</ul>
+    <p>設備 ${state.items.length} 件。面積約 ${(state.w * state.d / 10000).toFixed(1)} 平方公尺。</p>` : "<p>先從左邊加設備。</p>";
+  if (!item) return;
+  ["name","iw","ih","ix","iy"].forEach((id) => document.getElementById(id).onchange = () => {
+    snapshot();
+    item.name = document.getElementById("name").value;
+    item.w = Number(document.getElementById("iw").value);
+    item.h = Number(document.getElementById("ih").value);
+    item.x = Number(document.getElementById("ix").value);
+    item.y = Number(document.getElementById("iy").value);
+    persist();
+  });
+  document.getElementById("dup").onclick = () => { snapshot(); state.items.push({ ...item, x: item.x + 20, y: item.y + 20 }); selected = state.items.length - 1; persist(); };
+  document.getElementById("del").onclick = () => { snapshot(); state.items.splice(selected, 1); selected = 0; persist(); };
+}
+document.getElementById("lib").innerHTML = LIB.map((item, index) => `<button type="button" data-lib="${index}" style="display:block;margin:4px 0">${item[0]} ${item[1]}×${item[2]}</button>`).join("");
+document.querySelectorAll("[data-lib]").forEach((button) => button.onclick = () => {
+  snapshot();
+  const spec = LIB[button.dataset.lib];
+  state.items.push({ name: spec[0], w: spec[1], h: spec[2], x: 20, y: 20 });
+  selected = state.items.length - 1;
+  persist();
+});
+document.getElementById("undo").onclick = () => { if (!past.length) return; future.push(JSON.stringify(state)); state = JSON.parse(past.pop()); persist(); };
+document.getElementById("redo").onclick = () => { if (!future.length) return; past.push(JSON.stringify(state)); state = JSON.parse(future.pop()); persist(); };
+document.getElementById("check").onclick = () => alert(problems().join("\n") || "走道和牆面目前看過關。");
+["w","d","aisle"].forEach((id) => document.getElementById(id).onchange = () => { snapshot(); state.w = Number(document.getElementById("w").value); state.d = Number(document.getElementById("d").value); state.aisle = Number(document.getElementById("aisle").value); persist(); });
+document.getElementById("json").onclick = () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "平面圖.json"; link.click(); };
+document.getElementById("open").onchange = async (event) => { state = JSON.parse(await event.target.files[0].text()); persist(); };
+document.getElementById("csv").onclick = () => Jiuwo.csv("設備清單.csv", [["名稱","寬","深","X","Y"], ...state.items.map((item) => [item.name, item.w, item.h, item.x, item.y])]);
+document.getElementById("print").onclick = () => window.print();
+document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); persist(); };
+document.getElementById("blank").onclick = () => { snapshot(); state.items = []; persist(); };
+document.addEventListener("keydown", (event) => {
+  const item = state.items[selected];
+  if (!item || ["INPUT","TEXTAREA"].includes(event.target.tagName)) return;
+  const step = event.shiftKey ? 10 : 1;
+  if (event.key === "ArrowLeft") item.x -= step;
+  else if (event.key === "ArrowRight") item.x += step;
+  else if (event.key === "ArrowUp") item.y -= step;
+  else if (event.key === "ArrowDown") item.y += step;
+  else return;
+  event.preventDefault();
+  persist();
+});
+draw();
 </script>

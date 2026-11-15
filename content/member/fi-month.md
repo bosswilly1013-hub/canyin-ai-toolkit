@@ -11,8 +11,8 @@ prompt:
 download: 
 downloadLabel: 
 video: 
-tool: 
-file: 
+tool: /downloads/report.html
+file: /downloads/report.html
 ---
 十項一起看，會議沒有結論。
 
