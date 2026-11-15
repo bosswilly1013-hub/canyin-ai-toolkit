@@ -100,16 +100,9 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   const [viewMap, setViewMap] = useState<Record<string, number>>({});
   const [note, setNote] = useState("");
   const [showTool, setShowTool] = useState(false);
+  const [hashNow, setHashNow] = useState("#/");
 
   useEffect(() => {
-    const hashPath = location.hash.replace(/^#/, "");
-    if (hashPath.startsWith("/") && hashPath.length > 1) {
-      const path = hashPath.endsWith("/") ? hashPath : `${hashPath}/`;
-      if (path !== location.pathname) {
-        location.replace(path + location.search);
-        return;
-      }
-    }
     // 登入狀態只存在這台裝置，必須等瀏覽器起來才能讀。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthed(localStorage.getItem(authStorageKey) === "ok");
@@ -124,6 +117,10 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     try { setViewMap(JSON.parse(localStorage.getItem("jiuwo.views") || "{}") as Record<string, number>); } catch { setViewMap({}); }
     setReady(true);
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+    const syncHash = () => setHashNow(location.hash || "#/");
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
   }, []);
 
   useEffect(() => {
@@ -139,26 +136,28 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   }, []);
 
   useEffect(() => {
-    if (page !== "read" || !slug || !authed) return;
-    const next = [slug, ...readList(recentKey).filter((item) => item !== slug)].slice(0, 8);
+    const activeSlug = page === "read" ? slug : hashNow.startsWith("#/c/") ? decodeURIComponent(hashNow.slice(4).replace(/\/$/, "")) : "";
+    if (!activeSlug || !authed) return;
+    const slugNow = activeSlug;
+    const next = [slugNow, ...readList(recentKey).filter((item) => item !== slugNow)].slice(0, 8);
     writeList(recentKey, next);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecent(next);
-    localStorage.setItem("jiuwo.last", slug);
-    setLastSlug(slug);
+    localStorage.setItem("jiuwo.last", slugNow);
+    setLastSlug(slugNow);
     const seenNow = readList(seenKey);
-    if (!seenNow.includes(slug)) {
-      const withSeen = [...seenNow, slug];
+    if (!seenNow.includes(slugNow)) {
+      const withSeen = [...seenNow, slugNow];
       writeList(seenKey, withSeen);
       setSeen(withSeen);
     }
     const views = JSON.parse(localStorage.getItem("jiuwo.views") || "{}") as Record<string, number>;
-    views[slug] = (views[slug] || 0) + 1;
+    views[slugNow] = (views[slugNow] || 0) + 1;
     localStorage.setItem("jiuwo.views", JSON.stringify(views));
     setViewMap(views);
-    setNote(localStorage.getItem(`jiuwo.note.${slug}`) || "");
+    setNote(localStorage.getItem(`jiuwo.note.${slugNow}`) || "");
     setShowTool(false);
-  }, [page, slug, authed]);
+  }, [page, slug, authed, hashNow]);
 
   function ping(message: string) {
     setToast(message);
@@ -246,7 +245,10 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     );
   }
 
-  const article = slug ? bySlug[slug] : undefined;
+  const hashSlug = hashNow.startsWith("#/c/") ? decodeURIComponent(hashNow.slice(4).replace(/\/$/, "")) : "";
+  const hashJourney = hashNow.startsWith("#/journey/footprint") ? "footprint" : hashNow.startsWith("#/journey/subs") ? "subs" : hashNow.startsWith("#/journey") ? "milestone" : "";
+  const hashAbout = hashNow.startsWith("#/about");
+  const article = (page === "read" ? slug : hashSlug) ? bySlug[(page === "read" ? slug : hashSlug) as string] : undefined;
   const spark = SUBS.map((point, index) => {
     const max = Math.max(...SUBS.map((item) => item.count));
     const x = (index / (SUBS.length - 1)) * 120;
@@ -257,20 +259,18 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   return (
     <div className="member" data-theme={theme}>
       <header className="m-head no-print">
-        <button type="button" className="drawer" onClick={() => setDrawer((value) => !value)}>目錄</button>
-        <Link href="/"><b>久沃</b> 訂閱</Link>
-        <nav>
-          <Link className={page === "home" ? "on" : ""} href="/">內容</Link>
-          <Link className={page === "journey" ? "on" : ""} href="/journey">AI歷程</Link>
-          <Link className={page === "about" ? "on" : ""} href="/about">認識 Willy</Link>
+        <a className="brand" href="/#/"><img src="/member/willy.jpg" alt="" /><span className="txt">久沃<span>訂閱</span></span></a>
+        <nav className="tabs">
+          <a className={!hashJourney && !hashAbout && !hashSlug && page === "home" ? "tab on" : "tab"} href="/#/">內容</a>
+          <a className={page === "journey" || hashJourney ? "tab on" : "tab"} href="/#/journey">AI歷程</a>
+          <a className={page === "about" || hashAbout ? "tab on" : "tab"} href="/#/about">認識 Willy</a>
         </nav>
         <span className="sp" />
-        <div className="tools">
-          <button type="button" onClick={toggleTheme}>{theme === "dark" ? "淺色" : "深色"}</button>
-          <button type="button" className="out" onClick={logout}>登出</button>
-        </div>
+        <button type="button" className="hbtn menu drawer" onClick={() => setDrawer((value) => !value)}>目錄</button>
+        <button type="button" className="hbtn" onClick={toggleTheme}>{theme === "dark" ? "淺色" : "深色"}</button>
+        <button type="button" className="out" onClick={logout}>登出</button>
       </header>
-      {page === "home" ? (
+      {page === "home" && !hashSlug && !hashJourney && !hashAbout ? (
         <HomeView
           articles={articles}
           query={query}
@@ -296,12 +296,12 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
           toggleFav={toggleFav}
         />
       ) : null}
-      {page === "journey" ? <Journey tab={tab} /> : null}
-      {page === "about" ? <About /> : null}
-      {page === "read" && article ? (
-        <article className="read overlay">
+      {page === "journey" || hashJourney ? <Journey tab={hashJourney || tab} /> : null}
+      {page === "about" || hashAbout ? <About /> : null}
+      {(page === "read" || hashSlug) && article ? (
+        <article className="read overlay viewer">
           <header className="overlay-bar no-print">
-            <Link href="/">← 回去學習</Link>
+            <a href="/#/">← 回去學習</a>
             <span>{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
             <button type="button" onClick={() => void copyText(location.origin + `/read/${article.slug}/`)}>複製連結</button>
           </header>
@@ -389,206 +389,187 @@ function HomeView(props: {
 
   return (
     <>
-      <section className="hero" onMouseMove={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        event.currentTarget.style.setProperty("--mx", `${event.clientX - rect.left}px`);
-        event.currentTarget.style.setProperty("--my", `${event.clientY - rect.top}px`);
-      }}>
-        <div className="glow" />
-        <div className="hero-grid">
-          <div>
-            <span className="pill">訂閱者專屬 · 持續更新中</span>
-            <h1>歡迎回來<br />今天想看哪一篇？</h1>
-            <p>教材和能用的工具都在這。表留在你的裝置，不用下載 App。</p>
-            <div className="chips">
+      <section className="hero">
+        <div className="hero-bg"><i className="g1" /><i className="g2" /><i className="lines" /></div>
+        <div className="hero-in">
+          <div className="hero-main">
+            <div className="eyebrow"><span className="pulse" />訂閱者專屬 · 持續更新中</div>
+            <h2>歡迎回來 👋<br /><em>今天想看哪一篇？</em></h2>
+            <p className="lead">教材和店務工具都在這，打開就能用，不用下載 App。</p>
+            <div className="offer">
               <button type="button" onClick={() => setFilter("ai")}>系統實作</button>
               <button type="button" onClick={() => setFilter("mind")}>經營觀念</button>
               <button type="button" onClick={() => setFilter("tools")}>開店工具</button>
               <button type="button" className="live" onClick={() => setFilter("new")}>近 30 天新增 {props.monthCount} 篇</button>
             </div>
-            <div className="quote">
-              <span>「{founderQuote}」</span>
-              <Link href="/about#letter">讀初衷</Link>
+            <div className="why">
+              <q>{founderQuote}</q>
+              <a href="/#/about">讀 Willy 的初衷 →</a>
             </div>
+            <form className="searchbar" onSubmit={(event) => event.preventDefault()}>
+              <span className="ic">搜</span>
+              <input id="member-search" aria-label="搜尋教材" placeholder="搜尋教材，按 / 也能打開" value={query} onChange={(event) => setQuery(event.target.value)} />
+            </form>
           </div>
-          <div className="portrait">
-            <span className="ring" />
-            <span className="orbit"><i /></span>
+          <a className="hero-pic" href="/#/about">
+            <span className="arc" /><span className="ring" />
+            <span className="orbit"><i /></span><span className="orbit o2"><i /></span>
             <img src="/member/willy.jpg" alt="Willy 在店裡" />
-            <span className="badge b1">{apps.length}+ 套系統</span>
-            <span className="badge b2">創業 19 年</span>
-            <Link href="/about" className="badge b3">嗨，我是 Willy →</Link>
+            <span className="chip c1">{apps.length}+ 套系統</span>
+            <span className="chip c2">創業 19 年</span>
+            <span className="chip c3">久沃餐飲</span>
+            <span className="name">嗨，我是 Willy →</span>
+          </a>
+          <div className="stats">
+            <a className="stat" href="#library"><b>{articles.length}</b><span>篇教材與實作</span></a>
+            <a className="stat" href="#downloads"><b>{downloads.length}</b><span>個可下載的表和工具</span></a>
+            <a className="stat" href="#toc"><b>{topics.length}</b><span>大主題</span></a>
           </div>
+          <section className="dash" aria-label="實戰儀表板">
+            <div className="dash-top"><b>Willy 的實戰儀表板</b><span>從 {aiStartDate} 起算</span></div>
+            <div className="dash-grid">
+              <a href="/#/journey"><small>用 AI 看店</small><strong>{daysSince(aiStartDate)} 天</strong><span>看歷程 →</span></a>
+              <a href="/#/journey"><small>做了這些系統</small><strong>{SYSTEMS.length} 套</strong><span>公司 {props.company} · 個人 {props.personal}</span></a>
+              <a href="/#/journey/footprint"><small>做過的事</small><strong>{EVENTS.length} 件</strong><span>數位足跡 →</span></a>
+              <a href="/#/journey/subs"><small>訂閱人數</small><strong>{props.subsNow}</strong><svg width="120" height="36" aria-hidden="true"><polyline fill="none" stroke="#C3F000" strokeWidth="2" points={props.spark} /></svg></a>
+            </div>
+          </section>
+          <section className="quick">
+            <a className="qc hl" href={`/#/c/${nextPath}`}>
+              <span className="k">{pathStarted ? "繼續下一支" : "新手路線"} · 已看 {props.pathDone}/{learningPath.length}</span>
+              <span className="v">{props.bySlug[nextPath]?.title}</span>
+              <span className="prog"><i style={{ width: `${(props.pathDone / learningPath.length) * 100}%` }} /></span>
+            </a>
+            <a className="qc" href={props.newest[0] ? `/#/c/${props.newest[0].slug}` : "#new"}>
+              <span className="k">最新上架 · 兩週內 {props.newest.length} 篇</span>
+              <span className="v">{props.newest[0]?.title || "這兩週沒有新篇"}</span>
+              <span className="go">馬上看 →</span>
+            </a>
+            {props.last ? (
+              <a className="qc" href={`/#/c/${props.last.slug}`}><span className="k">上次看到</span><span className="v">{props.last.title}</span><span className="go">接著看 →</span></a>
+            ) : (
+              <button type="button" className="qc" onClick={() => props.setDrawer(true)}><span className="k">不知道從哪看？</span><span className="v">打開目錄，照主題找</span></button>
+            )}
+            <a className="qpromo" href="/#/c/order-columns">
+              <span className="gk">今天就能用</span>
+              <span className="gt">把叫貨表丟進來，算出平常叫多少</span>
+              <span className="gs">打開叫貨 →</span>
+            </a>
+          </section>
         </div>
       </section>
-      <form className="search" onSubmit={(event) => event.preventDefault()}>
-        <input id="member-search" aria-label="搜尋教材" placeholder="搜尋教材，按 / 也能打開" value={query} onChange={(event) => setQuery(event.target.value)} />
-      </form>
-      <div className="stats">
-        <a href="#library"><b>{articles.length}</b><span>篇教材與實作</span></a>
-        <a href="#downloads"><b>{downloads.length}</b><span>個可下載的表和工具</span></a>
-        <a href="#toc"><b>{topics.length}</b><span>大主題</span></a>
-      </div>
-      <section className="dash" aria-label="AI 實戰儀表板">
-        <Link href="/journey"><span>用 AI 看店</span><strong>{daysSince(aiStartDate)} 天</strong><span>從 {aiStartDate} 起</span></Link>
-        <Link href="/journey"><span>做了這些系統</span><strong>{SYSTEMS.length} 套</strong><span>公司 {props.company} · 個人 {props.personal}</span></Link>
-        <Link href="/journey/footprint"><span>做過的事</span><strong>{EVENTS.length} 件</strong><span>含踩過的雷</span></Link>
-        <Link href="/journey/subs">
-          <span>訂閱人數</span><strong>{props.subsNow}</strong>
-          <svg width="120" height="40" aria-hidden="true"><polyline fill="none" stroke="#e15a2b" strokeWidth="2" points={props.spark} /></svg>
-        </Link>
-      </section>
-      <section className="quick">
-        <Link href={`/read/${nextPath}`}>
-          <span>{pathStarted ? "繼續下一支" : "新手路線"} · 已看 {props.pathDone}/{learningPath.length}</span>
-          <b>{props.bySlug[nextPath]?.title}</b>
-          <span className="bar"><i style={{ width: `${(props.pathDone / learningPath.length) * 100}%` }} /></span>
-        </Link>
-        <Link href={props.newest[0] ? `/read/${props.newest[0].slug}` : "#new"}>
-          <span>最新上架 · 兩週內 {props.newest.length} 篇</span>
-          <b>{props.newest[0]?.title || "這兩週沒有新篇"}</b>
-        </Link>
-        {props.last ? (
-          <Link href={`/read/${props.last.slug}`}><span>上次看到</span><b>接著看 {props.last.title}</b></Link>
-        ) : (
-          <button type="button" onClick={() => props.setDrawer(true)}><span>不知道從哪看？</span><b>打開目錄</b></button>
-        )}
-        <Link href="/systems/orders"><span>今天就能用</span><b>叫貨系統</b></Link>
-      </section>
-      {props.recent.length ? (
-        <section className="tools">
-          <h2>最近看過</h2>
-          <ul>{props.recent.map((id) => props.bySlug[id] ? <li key={id}><Link href={`/read/${id}`}>{props.bySlug[id].title}</Link></li> : null)}</ul>
-        </section>
-      ) : null}
       {query.trim() ? (
-        <section className="tools">
-          <h2>找到 {hits.length} 筆</h2>
-          <ul>
-            {hits.map(({ article, snippet }) => (
-              <li key={article.slug} className="hit">
-                <Link href={`/read/${article.slug}`}>{highlight(article.title, query)}</Link>
-                <p>{highlight(snippet, query)}</p>
-              </li>
-            ))}
-          </ul>
+        <section className="layout" id="library">
+          <div />
+          <div>
+            <p className="hits">找到 <b>{hits.length}</b> 筆</p>
+            <div className="grid">
+              {hits.map(({ article, snippet }) => (
+                <a key={article.slug} className="card" href={`/#/c/${article.slug}`}>
+                  <span className={`thumb cover-${article.category}`}><small>{articleKind(article)}</small></span>
+                  <span className="body"><span className="tag">{topics.find((topic) => topic.id === article.category)?.name}</span><h3>{highlight(article.title, query)}</h3><p className="snip">{highlight(snippet, query)}</p></span>
+                </a>
+              ))}
+            </div>
+          </div>
         </section>
       ) : (
         <div className="layout" id="library">
-          <aside className={props.drawer ? "side open" : "side"} id="toc">
-            <button type="button" onClick={() => setFilter("all")}>全部內容（{articles.length}）</button>
-            <button type="button" onClick={() => setFilter("path")}>新手入門 {props.pathDone}/{learningPath.length}</button>
-            <a href="#downloads">下載區（{downloads.length}）</a>
-            {topics.map((topic) => {
-              const list = articles.filter((article) => article.category === topic.id);
-              const done = list.filter((article) => props.seen.includes(article.slug)).length;
-              return (
-                <button type="button" key={topic.id} onClick={() => setFilter(topic.id)}>
-                  {topic.name}（{list.length}）
-                  <span className="bar"><i style={{ width: `${list.length ? (done / list.length) * 100 : 0}%` }} /></span>
-                </button>
-              );
-            })}
-            <h3>目錄</h3>
-            {topics.map((topic) => {
-              const list = articles.filter((article) => article.category === topic.id);
-              const open = props.openCats[topic.id] === true;
-              return (
-                <div key={topic.id}>
-                  <button type="button" onClick={() => props.setOpenCats({ ...props.openCats, [topic.id]: !open })}>{topic.name}</button>
-                  {open ? list.map((article) => <Link key={article.slug} href={`/read/${article.slug}`}>{article.title}</Link>) : null}
-                </div>
-              );
-            })}
-            <h3>熱門排行</h3>
-            <p>基礎次數寫在 ranking.ts，加上你這台看過的次數。</p>
-            {ranked.map((article) => (
-              <Link key={article.slug} href={`/read/${article.slug}`}>{article.title} · {score(article.slug)}</Link>
-            ))}
-            <Link href="/about" className="card">認識 Willy</Link>
-          </aside>
-          <div>
-            <div className="chips">
-              <button type="button" onClick={() => setFilter("path")}>新手入門</button>
-              <button type="button" onClick={() => setFilter("new")}>最新更新</button>
-              <button type="button" onClick={() => setFilter("downloads")}>下載區</button>
-              {topics.map((topic) => <button type="button" key={topic.id} onClick={() => setFilter(topic.id)}>{topic.name}</button>)}
+          <aside className={props.drawer ? "toc open" : "toc"} id="toc">
+            <div className="side-card">
+              <h4>分類</h4>
+              <button type="button" className={filter === "all" ? "cl-it on" : "cl-it"} onClick={() => setFilter("all")}><span className="nm">全部內容</span><span className="cnt">{articles.length}</span></button>
+              <button type="button" className={filter === "path" ? "cl-it on" : "cl-it"} onClick={() => setFilter("path")}><span className="nm">新手入門</span><span className="cnt">{props.pathDone}/{learningPath.length}</span></button>
+              <button type="button" className={filter === "downloads" ? "cl-it on" : "cl-it"} onClick={() => setFilter("downloads")}><span className="nm">下載區</span><span className="cnt">{downloads.length}</span></button>
+              {topics.map((topic) => {
+                const list = articles.filter((article) => article.category === topic.id);
+                const done = list.filter((article) => props.seen.includes(article.slug)).length;
+                return (
+                  <button type="button" key={topic.id} className={filter === topic.id ? "cl-it on" : "cl-it"} onClick={() => setFilter(topic.id)}>
+                    <span className="nm">{topic.name}</span>
+                    <span className="cnt">{done ? `${done}/` : ""}{list.length}</span>
+                  </button>
+                );
+              })}
             </div>
-            {filter === "path" ? (
-              <table className="path" id="path">
-                <tbody>
-                  {learningPath.map((id, index) => (
-                    <tr key={id}><td>STEP {index + 1}</td><td><Link href={`/read/${id}`}>{props.bySlug[id]?.title}</Link></td><td>{props.seen.includes(id) ? "看過" : ""}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : null}
-            {filter === "claude" ? (
-              <table className="path" id="path-claude">
-                <tbody>
-                  {claudePath.map((id, index) => (
-                    <tr key={id}><td>STEP {index + 1}</td><td><Link href={`/read/${id}`}>{props.bySlug[id]?.title}</Link></td><td>{props.seen.includes(id) ? "看過" : ""}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : null}
-            <div className="cards" id="new">
-              {(filter === "downloads" ? [] : visible).map((article, index) => (
-                <Link key={article.slug} href={`/read/${article.slug}`} className="card">
-                  <span className={`cover cover-${article.category}`}><small>{articleKind(article)}</small><b>{topics.find((topic) => topic.id === article.category)?.name}</b></span>
-                  <span>{articleKind(article)}{isNew(article.date) ? " · 新" : ""}</span>
-                  <b>{filter !== "all" && filter !== "new" ? `STEP ${index + 1} ` : ""}{article.title}</b>
-                  <p>{article.summary}</p>
-                  {props.seen.includes(article.slug) ? <span>看過</span> : null}
-                </Link>
+            <div className="side-card">
+              <h4>熱門排行</h4>
+              <p className="tiny">基礎次數在 ranking.ts，加上你這台看過的次數。</p>
+              {ranked.map((article, index) => (
+                <a key={article.slug} className="hot-it" href={`/#/c/${article.slug}`}><span className="no">{index + 1}</span><span className="t">{article.title}</span><span className="v">{score(article.slug)}</span></a>
               ))}
             </div>
-            {topics.filter((topic) => filter === "all" || filter === topic.id).map((topic) => {
-              const list = articles.filter((article) => article.category === topic.id);
-              const subs = [...new Set(list.map((article) => article.sub))];
-              return (
-                <section key={topic.id} className="cat" id={`cat-${topic.id}`}>
-                  <h2>{topic.name}<span>{list.length} 篇</span></h2>
-                  <p>{topic.blurb}</p>
-                  {subs.map((sub) => (
-                    <div key={sub} className="sub">
-                      <h3>{subEmoji[sub] || "•"} {sub}</h3>
-                    </div>
-                  ))}
-                </section>
-              );
-            })}
-            <section id="downloads">
-              <h2>下載區</h2>
-              <div className="chips">
-                <button type="button" onClick={() => setFileKind("全部")}>全部 {downloads.length}</button>
-                {downloadKinds.map((kind) => (
-                  <button type="button" key={kind} onClick={() => setFileKind(kind)}>{kind} {downloads.filter((file) => file.kind === kind).length}</button>
+            <div className="side-card">
+              <a className="me-card" href="/#/about"><img src="/member/willy.jpg" alt="" /><div><b>認識 Willy</b><span>開店 19 年，為什麼做這個站</span><span className="go">讀 Willy 的故事 →</span></div></a>
+            </div>
+          </aside>
+          <div className="main">
+            <div className="cats">
+              <button type="button" className={filter === "path" ? "cat on" : "cat"} onClick={() => setFilter("path")}>新手入門</button>
+              <button type="button" className={filter === "new" ? "cat on" : "cat"} onClick={() => setFilter("new")}>最新更新</button>
+              <button type="button" className={filter === "downloads" ? "cat on" : "cat"} onClick={() => setFilter("downloads")}>下載區</button>
+              <i className="sep" />
+              {topics.map((topic) => <button type="button" key={topic.id} className={filter === topic.id ? "cat on" : "cat"} onClick={() => setFilter(topic.id)}>{topic.name}</button>)}
+            </div>
+            {filter === "path" || filter === "claude" ? (
+              <div className="path-tbl" id={filter === "claude" ? "path-claude" : "path"}>
+                <div className="ph"><b>建議學習步驟</b><span>{filter === "claude" ? `${claudePath.filter((id) => props.seen.includes(id)).length}/${claudePath.length}` : `${props.pathDone}/${learningPath.length}`}</span></div>
+                {(filter === "claude" ? claudePath : learningPath).map((id, index) => (
+                  <a key={id} className={props.seen.includes(id) ? "path-row read" : "path-row"} href={`/#/c/${id}`}>
+                    <span className="no">STEP {index + 1}</span>
+                    <span className="tt">{props.bySlug[id]?.title}<small>{props.bySlug[id]?.summary}</small></span>
+                    <span className="ok">{props.seen.includes(id) ? "✓ 看過" : ""}</span>
+                  </a>
                 ))}
               </div>
-              {files.map((file) => (
-                <article key={file.href} className="article">
-                  <b>{file.name}</b>
-                  <p>{file.description} · {formatBytes(file.bytes)}</p>
-                  <p>出自：<Link href={`/read/${file.article}`}>{props.bySlug[file.article]?.title}</Link></p>
-                  <p>
-                    <a href={file.href} download>下載</a>
-                    {file.open ? <> · <a href={file.open}>線上直接用</a></> : null}
-                  </p>
-                </article>
-              ))}
-            </section>
-            <section className="tools" id="tools">
-              <h2>可直接用的工具</h2>
-              <ul>{apps.map((app) => <li key={app.id}><Link href={`/systems/${app.id}`}>{app.name}：{app.help}</Link></li>)}</ul>
-            </section>
+            ) : null}
+            {filter === "downloads" ? (
+              <section id="downloads">
+                <div className="sec-head"><h2>下載區</h2><p>表、網頁工具、提示詞。網頁工具的數字留在這台裝置。</p></div>
+                <div className="cats">
+                  <button type="button" className={fileKind === "全部" ? "cat on" : "cat"} onClick={() => setFileKind("全部")}>全部 {downloads.length}</button>
+                  {downloadKinds.map((kind) => <button type="button" key={kind} className={fileKind === kind ? "cat on" : "cat"} onClick={() => setFileKind(kind)}>{kind} {downloads.filter((file) => file.kind === kind).length}</button>)}
+                </div>
+                <div className="dlbox">
+                  {files.map((file) => (
+                    <div key={file.href} className="dlr">
+                      <div className="info"><b>{file.name}</b><span>{file.description} · {formatBytes(file.bytes)}</span><a href={`/#/c/${file.article}`}>出自：{props.bySlug[file.article]?.title}</a></div>
+                      <a className="get" href={file.href} download>下載</a>
+                      {file.open ? <a className="get ghost" href={file.open}>線上直接用</a> : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <>
+                <div className="sec-head" id="new">
+                  <h2>{filter === "all" ? "全部內容" : filter === "new" ? "最新更新" : filter === "path" ? "新手入門" : topics.find((topic) => topic.id === filter)?.name}</h2>
+                  <p>{filter === "all" || filter === "new" || filter === "path" ? "先看步驟，再挑一篇打開。" : topics.find((topic) => topic.id === filter)?.blurb}</p>
+                </div>
+                <div className="grid">
+                  {visible.map((article, index) => (
+                    <a key={article.slug} className={props.seen.includes(article.slug) ? "card read" : "card"} href={`/#/c/${article.slug}`}>
+                      <span className={`thumb cover-${article.category}`}>
+                        {filter !== "all" && filter !== "new" ? <span className="step">STEP {index + 1}</span> : null}
+                        <span className="seen">✓ 看過</span>
+                        <small>{articleKind(article)}{isNew(article.date) ? " · 新" : ""}</small>
+                      </span>
+                      <span className="body">
+                        <span className="tag">{topics.find((topic) => topic.id === article.category)?.name} · {article.minutes} 分鐘</span>
+                        <h3>{article.title}</h3>
+                        <p className="desc">{article.summary}</p>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
     </>
   );
 }
-
 function highlight(text: string, query: string) {
   const q = query.trim();
   if (!q) return text;

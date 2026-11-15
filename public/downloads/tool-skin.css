@@ -1,0 +1,5 @@
+body { background: #fafaf7; color: #1A1A16; font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif; }
+header { background: #1A1A16 !important; color: #fff !important; }
+header button, .tabs button.on, #go, #mode, .get { background: #C3F000; color: #1A1A16; border-radius: 999px; font-weight: 700; }
+button { border-radius: 10px; }
+section, aside, table { border-color: #e8e8e0; }
