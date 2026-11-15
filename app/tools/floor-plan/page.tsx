@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { ToolFrame } from "@/components/tool-frame";
-import { FloorTool } from "@/components/tools/floor-tool";
-import { getTool } from "@/lib/catalog";
+import { ToolJump } from "@/components/tool-jump";
 
-const tool = getTool("floor-plan");
-export const metadata: Metadata = { title: tool.name, description: tool.problem };
+export const metadata: Metadata = { title: "店面平面圖" };
 
 export default function Page() {
-  return (
-    <ToolFrame slug="floor-plan">
-      <FloorTool />
-    </ToolFrame>
-  );
+  return <ToolJump href="/downloads/floor.html" name="店面平面圖" />;
 }

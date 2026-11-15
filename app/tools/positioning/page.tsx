@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { ToolFrame } from "@/components/tool-frame";
-import { PositioningTool } from "@/components/tools/positioning-tool";
-import { getTool } from "@/lib/catalog";
+import { ToolJump } from "@/components/tool-jump";
 
-const tool = getTool("positioning");
-export const metadata: Metadata = { title: tool.name, description: tool.problem };
+export const metadata: Metadata = { title: "品牌定位圖" };
 
 export default function Page() {
-  return (
-    <ToolFrame slug="positioning">
-      <PositioningTool />
-    </ToolFrame>
-  );
+  return <ToolJump href="/downloads/position.html" name="品牌定位圖" />;
 }

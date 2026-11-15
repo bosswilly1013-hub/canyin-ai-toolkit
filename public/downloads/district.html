@@ -1,39 +1,67 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
-<link rel="stylesheet" href="/downloads/tool-skin.css">
+<link rel="stylesheet" href="/downloads/tool-frame.css">
 <title>商圈調查</title>
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
-  body { margin: 0; font-family: sans-serif; background: #f6f3ec; color: #14221c; }
-  header { background: #14221c; color: #fff; padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  main { display: grid; grid-template-columns: 300px 1fr 280px; }
-  #map { min-height: 72vh; }
-  aside { padding: 8px; overflow: auto; max-height: 78vh; font-size: 14px; }
+  .area { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 14px; }
+  .mapcard { background: #16160f; color: #fff; border-radius: 22px; padding: 14px; min-height: 78vh; display: flex; flex-direction: column; }
+  .mapcard h2 { margin: 0 0 8px; font-size: 18px; }
+  .filters { background: #fff; color: var(--ink); border-radius: 16px; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .filters button.on, #mode.on { background: var(--lime); color: #16160f; border-color: transparent; }
+  #map { flex: 1; min-height: 520px; border-radius: 16px; margin-top: 8px; }
+  #list { color: var(--ink); background: #fff; border-radius: 12px; margin-top: 8px; padding: 8px 10px; max-height: 140px; overflow: auto; font-size: 13px; }
+  .help { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .help ol { padding-left: 1.2rem; }
   .pyr { display: grid; grid-template-columns: 1fr 52px 1fr; gap: 2px; align-items: center; font-size: 12px; }
   .pyr i { display: block; height: 8px; background: #1d3c34; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .area { grid-template-columns: 1fr; } #map { min-height: 360px; } }
 </style>
-<header>
-  <b>久沃商圈</b>
-  <button type="button" id="mode">步行圈</button>
-  <input id="q" placeholder="地址或地標">
-  <button type="button" id="find">搜尋</button>
-  <label><input type="radio" name="r" value="300">300</label>
-  <label><input type="radio" name="r" value="500" checked>500</label>
-  <label><input type="radio" name="r" value="800">800 公尺</label>
-  <button type="button" id="add">加入比較</button>
-  <select id="city"></select>
-  <select id="dist"></select>
-  <select id="metric"><option value="p">人口</option><option value="h">戶數</option><option value="old">65歲以上占比</option></select>
-  <select id="op"><option>≥</option><option>≤</option></select>
-  <input id="limit" type="number" placeholder="門檻" style="width:5rem">
-</header>
-<main>
-  <aside id="list"></aside>
-  <div id="map"></div>
-  <aside id="stats"><p>正在讀村里人口…</p></aside>
-</main>
+<body class="tool">
+<div class="shell">
+  <header class="hero">
+    <p class="kicker">久沃實戰筆記</p>
+    <h1>商圈調查</h1>
+    <p>點一個位置，看走路幾分鐘內住了誰、附近有哪些店。人口用內政部村里資料。</p>
+  </header>
+  <div class="area">
+    <section class="mapcard">
+      <h2>商圈調查　全台村里</h2>
+      <div class="filters">
+        <button type="button" id="mode" class="on">步行圈</button>
+        <label>縣市 <select id="city"></select></label>
+        <label>鄉鎮 <select id="dist"></select></label>
+        <span>範圍</span>
+        <label><input type="radio" name="r" value="300">300</label>
+        <label><input type="radio" name="r" value="500" checked>500</label>
+        <label><input type="radio" name="r" value="800">800 公尺</label>
+        <input id="q" placeholder="里名、地標，例如高雄巨蛋">
+        <button type="button" id="find">搜尋</button>
+        <button type="button" id="add">加入比較</button>
+        <select id="metric"><option value="p">人口</option><option value="h">戶數</option><option value="old">65歲以上占比</option></select>
+        <select id="op"><option>≥</option><option>≤</option></select>
+        <input id="limit" type="number" placeholder="門檻" style="width:5rem">
+      </div>
+      <div id="map"></div>
+      <div id="list"></div>
+    </section>
+    <aside>
+      <section class="help">
+        <h2>先選一個想開店的位置</h2>
+        <p>步行圈畫出來之後，看住了多少人、年齡，和附近有哪些店。</p>
+        <ol>
+          <li>搜尋地標，或直接拖地圖上的點。</li>
+          <li>選 300、500 或 800 公尺。</li>
+          <li>右邊數字是戶政人口，不是即時人潮。</li>
+          <li>店家清單若連不上，會先用兩家示範店。</li>
+        </ol>
+      </section>
+      <section class="help" id="stats"><p>正在讀村里人口…</p></section>
+    </aside>
+  </div>
+  <p id="src" class="hint"></p>
+</div>
 <p id="src" style="padding:8px 12px;font-size:12px"></p>
 <script src="/vendor/leaflet/leaflet.js"></script>
 <script>
@@ -182,6 +210,7 @@ async function boot() {
   document.getElementById("limit").onchange = () => { if (saved.mode === "admin") drawAdmin(); };
   if (saved.mode === "admin") drawAdmin(); else drawWalk();
   loadPlaces().then(() => { if (saved.mode !== "admin") drawWalk(); });
+  setTimeout(() => map.invalidateSize(), 200);
 }
 document.getElementById("mode").onclick = () => {
   saved.mode = saved.mode === "walk" ? "admin" : "walk";

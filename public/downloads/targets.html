@@ -1,116 +1,136 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
-<link rel="stylesheet" href="/downloads/tool-skin.css">
+<link rel="stylesheet" href="/downloads/tool-frame.css">
 <title>營業目標拆解</title>
-<style>
-  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
-  header { background: #14221c; color: #f4efe6; padding: 12px 16px; }
-  main { display: grid; grid-template-columns: 1.4fr .8fr; gap: 12px; padding: 12px; }
-  section, aside { background: #fffdf8; border-radius: 14px; padding: 12px; }
-  input { width: 7rem; }
-  .bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
-  @media print { header button { display: none; } }
-</style>
-<header>
-  <b>久沃營業目標</b>
-  <button type="button" id="mode">門市版</button>
-  <button type="button" id="csv">匯出 CSV</button>
-  <button type="button" id="print">列印</button>
-  <button type="button" id="clear">全部清空</button>
-  <button type="button" id="demo">還原範例</button>
-</header>
-<main>
-  <div id="form"></div>
-  <aside id="side"></aside>
-</main>
+<body class="tool">
+<div class="shell">
+  <header class="hero">
+    <p class="kicker">久沃實戰筆記｜開店、開公司都用得上</p>
+    <h1>營業目標拆解</h1>
+    <p>從「這個月要做多少」開始，拆到每天、每個來源要幾位客人。數字只留在這台裝置。</p>
+    <p class="formula">營業額 ＝ 來客數 × 客單價</p>
+  </header>
+  <div class="modes">
+    <button type="button" id="store">門市版（餐飲／零售）</button>
+    <button type="button" id="ecom">電商版（網路賣店）</button>
+  </div>
+  <div class="split">
+    <div id="form"></div>
+    <aside class="rail" id="side"></aside>
+  </div>
+  <div class="actions">
+    <button type="button" class="primary" id="csv">匯出 Excel（CSV）</button>
+    <button type="button" id="print">列印／存成 PDF</button>
+    <button type="button" id="clear">數字全部清空</button>
+    <button type="button" id="demo">還原成範例</button>
+  </div>
+</div>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.targets.v2";
+const KEY = "jiuwo.tool.targets.v3";
 const DEMO = {
-  mode: "store",
+  mode: "ecom",
   profit: 150000, margin: 12.5, goal: 0, last: 1050000,
-  days: 26, holidayDays: 4, holidayBoost: 1.2, ticket: 180, holidayTicket: 210,
-  slots: [{ name: "午餐", share: 40, ticket: 160 }, { name: "晚餐", share: 60, ticket: 200 }],
-  regulars: 400, repeat: 2, refer: 0.08, convert: 0.2, newCost: 40, recallCost: 15, stick: 0.3,
-  price: 180, items: 1.2, altPrice: 160, altItems: 1.4,
-  ecomDays: 22, campaignDays: 4, sources: [
-    { name: "搜尋", share: 40, cvr: 2.5, cpa: 35 },
-    { name: "社群", share: 25, cvr: 1.2, cpa: 20 },
-    { name: "回購", share: 20, cvr: 8, cpa: 5 },
-    { name: "廣告", share: 10, cvr: 1.5, cpa: 45 },
-    { name: "其他", share: 5, cvr: 1, cpa: 0 },
+  days: 22, holidayDays: 8, holidayBoost: 1.45, ticket: 180, holidayTicket: 220,
+  slots: [{ name: "午餐", share: 45, ticket: 160 }, { name: "晚餐", share: 50, ticket: 210 }, { name: "其他", share: 5, ticket: 90 }],
+  regulars: 8000, repeat: 0.07, refer: 0.01, convert: 1.5, newCost: 30, recallCost: 8, stick: 0.25,
+  price: 450, items: 2.5, altPrice: 380, altItems: 3.2,
+  ecomDays: 26, campaignDays: 4, sources: [
+    { name: "搜尋廣告", who: "還不知道品牌的人", do: "落地頁只留一個按鈕", share: 35, cvr: 1.5, cpa: 40 },
+    { name: "社群", who: "已看過菜單的人", do: "當天還賣的菜", share: 20, cvr: 2.5, cpa: 18 },
+    { name: "私訊", who: "問過的客人", do: "先問人數和時段", share: 25, cvr: 6, cpa: 0 },
+    { name: "老客回購", who: "九十天內買過", do: "一個月只提醒一次", share: 15, cvr: 8, cpa: 5 },
+    { name: "其他", who: "介紹來的", do: "記下是誰介紹", share: 5, cvr: 2, cpa: 0 },
   ],
 };
 let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
-function num(id) { return Number(state[id] || 0); }
+if (!state.sources) state.sources = structuredClone(DEMO.sources);
+function goalOf() { return state.goal > 0 ? state.goal : (state.margin > 0 ? Math.round(state.profit / (state.margin / 100)) : 0); }
 function compute() {
-  const goal = state.goal > 0 ? state.goal : (state.margin > 0 ? Math.round(state.profit / (state.margin / 100)) : 0);
+  const goal = goalOf();
   const growth = state.last > 0 ? (goal - state.last) / state.last : 0;
-  if (state.mode === "ecom") {
-    const days = state.ecomDays + state.campaignDays;
-    const day = days ? goal / days : 0;
-    const campaign = day * 1.3;
-    return { goal, growth, day, campaign, days };
-  }
-  const weight = state.days + state.holidayDays * (state.holidayBoost - 1);
-  const weekday = weight ? goal / weight : 0;
-  const holiday = weekday * state.holidayBoost;
+  const days = state.mode === "ecom" ? state.ecomDays : state.days;
+  const extraDays = state.mode === "ecom" ? state.campaignDays : state.holidayDays;
+  const boost = state.mode === "ecom" ? 1.3 : state.holidayBoost;
+  const weight = days + extraDays * (boost - 1 + (state.mode === "ecom" ? 1 : 0));
+  const weekday = weight ? goal / (state.mode === "ecom" ? days + extraDays : weight) : 0;
+  const holiday = state.mode === "ecom" ? weekday * 1.3 : weekday * state.holidayBoost;
   const guests = state.ticket ? weekday / state.ticket : 0;
-  const holidayGuests = state.holidayTicket ? holiday / state.holidayTicket : 0;
-  const share = state.slots.reduce((sum, slot) => sum + Number(slot.share || 0), 0);
+  const holidayGuests = (state.mode === "ecom" ? state.ticket : state.holidayTicket) ? holiday / (state.mode === "ecom" ? state.ticket : state.holidayTicket) : 0;
+  const orders = days * guests + extraDays * holidayGuests;
   const repeats = state.regulars * state.repeat;
-  const referred = repeats * state.refer;
-  const needed = (state.days * guests) + (state.holidayDays * holidayGuests);
-  const gap = Math.max(0, needed - repeats - referred);
-  const contacts = state.convert > 0 ? gap / state.convert : 0;
-  return { goal, growth, weekday, holiday, guests, holidayGuests, share, repeats, referred, needed, gap, contacts, cost: gap * state.newCost };
+  const referred = orders * state.refer;
+  const gap = Math.max(0, orders - repeats - referred);
+  const contacts = state.convert > 0 ? gap / (state.convert / 100) : 0;
+  const share = (state.mode === "ecom" ? state.sources : state.slots).reduce((sum, row) => sum + Number(row.share || 0), 0);
+  return { goal, growth, weekday, holiday, guests, holidayGuests, orders, repeats, referred, gap, contacts, share, cost: gap * state.newCost, days, extraDays };
 }
-function field(key, label) {
-  return `<label>${label}<br><input data-k="${key}" type="number" step="any" value="${state[key]}"></label> `;
+function num(key, label, step) {
+  return `<label class="f">${label}<input data-k="${key}" type="number" step="${step || "any"}" value="${state[key]}"></label>`;
 }
 function render() {
-  const result = compute();
   Jiuwo.save(KEY, state);
-  const form = document.getElementById("form");
-  document.getElementById("mode").textContent = state.mode === "store" ? "門市版" : "電商版";
-  if (state.mode === "store") {
-    form.innerHTML = `<section><h2>1 這個月要做多少</h2><p>想賺的錢 ÷ 淨利率。也可以直接填目標。</p>${field("profit","想賺多少")}${field("margin","淨利率 %")}${field("goal","直接填目標，0 代表用回推")}${field("last","上月營業額")}</section>
-      <section><h2>2 平日和假日</h2>${field("days","平日天數")}${field("holidayDays","假日天數")}${field("holidayBoost","假日倍率")}${field("ticket","平日客單")}${field("holidayTicket","假日客單")}</section>
-      <section><h2>3 時段</h2>${state.slots.map((slot, index) => `<p>名稱 <input data-slot="name" data-i="${index}" value="${slot.name}"> 占比 <input data-slot="share" data-i="${index}" type="number" value="${slot.share}"> 客單 <input data-slot="ticket" data-i="${index}" type="number" value="${slot.ticket}"> <button type="button" data-del="${index}">刪</button></p>`).join("")}<button type="button" id="add">加時段</button><p>${result.share === 100 ? "占比加總 100%。" : "占比現在是 " + result.share + "%，要到 100%。"}</p></section>
-      <section><h2>4 客人從哪來</h2>${field("regulars","老客數")}${field("repeat","每人回購次數")}${field("refer","轉介紹率")}${field("convert","接觸轉換率")}${field("newCost","新客成本")}${field("recallCost","召回成本")}${field("stick","新客轉熟客率")}</section>
-      <section><h2>5 客單價拆開</h2>${field("price","單價")}${field("items","件數")}<p>如果單價 ${state.altPrice}、件數 ${state.altItems}，客單變 ${Math.round(state.altPrice * state.altItems)}。</p>${field("altPrice","如果單價")}${field("altItems","如果件數")}</section>`;
-  } else {
-    form.innerHTML = `<section><h2>電商月目標</h2>${field("profit","想賺多少")}${field("margin","淨利率 %")}${field("goal","直接填目標")}${field("ecomDays","一般日")}${field("campaignDays","活動檔期日")}</section>
-      <section><h2>流量來源</h2>${state.sources.map((row, index) => `<p>${row.name} 占比 <input data-src="share" data-i="${index}" type="number" value="${row.share}"> 轉換% <input data-src="cvr" data-i="${index}" type="number" value="${row.cvr}"> CPA <input data-src="cpa" data-i="${index}" type="number" value="${row.cpa}"></p>`).join("")}</section>`;
-  }
-  form.querySelectorAll("[data-k]").forEach((input) => input.oninput = () => { state[input.dataset.k] = Number(input.value); renderSide(); Jiuwo.save(KEY, state); });
-  form.querySelectorAll("[data-slot]").forEach((input) => input.oninput = () => { state.slots[input.dataset.i][input.dataset.slot] = input.dataset.slot === "name" ? input.value : Number(input.value); renderSide(); Jiuwo.save(KEY, state); });
-  form.querySelectorAll("[data-src]").forEach((input) => input.oninput = () => { state.sources[input.dataset.i][input.dataset.src] = Number(input.value); renderSide(); Jiuwo.save(KEY, state); });
-  form.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.slots.splice(Number(button.dataset.del), 1); render(); });
-  const add = form.querySelector("#add");
-  if (add) add.onclick = () => { state.slots.push({ name: "新時段", share: 0, ticket: state.ticket }); render(); };
-  renderSide();
-}
-function renderSide() {
+  document.getElementById("store").classList.toggle("on", state.mode === "store");
+  document.getElementById("ecom").classList.toggle("on", state.mode === "ecom");
   const result = compute();
-  const note = result.growth > 0.1 ? "比上月多一成以上，先確認座位和人力。" : "成長在一成以內，比較做得到。";
-  document.getElementById("side").innerHTML = state.mode === "store"
-    ? `<h2>每月 ${Math.round(result.goal).toLocaleString()} 元</h2><p>${note} 成長 ${(result.growth*100).toFixed(1)}%。</p>
-      <p>平日每天 ${Math.round(result.weekday).toLocaleString()} 元，約 ${result.guests.toFixed(0)} 位。假日 ${Math.round(result.holiday).toLocaleString()} 元。</p>
-      ${state.slots.map((slot) => `<p>${slot.name} ${Math.round(result.weekday * slot.share / 100).toLocaleString()} 元</p>`).join("")}
-      <p>需要來客 ${Math.round(result.needed)}，回購約 ${Math.round(result.repeats)}，轉介紹 ${Math.round(result.referred)}，新客缺口 ${Math.round(result.gap)}。轉換率換算要接觸 ${Math.round(result.contacts)} 人，獲客成本 ${Math.round(result.cost)} 元，召回成本約 ${Math.round(state.regulars * 0.1 * state.recallCost)} 元。下月可望新熟客 ${Math.round(result.gap * state.stick)} 人。</p>
-      <div class="bar"><i style="width:${Math.min(100, result.repeats/(result.needed||1)*100)}%;background:#1d3c34"></i><i style="width:${Math.min(100, result.referred/(result.needed||1)*100)}%;background:#c4a15a"></i><i style="flex:1;background:#e15a2b"></i></div>
-      <p>綠老客 · 黃轉介紹 · 橘新客</p>`
-    : `<h2>每月 ${Math.round(result.goal).toLocaleString()} 元</h2><p>一般日約 ${Math.round(result.day).toLocaleString()} 元，檔期日約 ${Math.round(result.campaign).toLocaleString()} 元。</p>` + state.sources.map((row) => `<p>${row.name} 約 ${Math.round(result.goal * row.share / 100).toLocaleString()} 元，CPA ${row.cpa}</p>`).join("");
+  const step2 = state.mode === "store"
+    ? `<div class="grid3">${num("days","一般日天數")}${num("holidayDays","活動／假日天數")}${num("holidayBoost","假日是平日的幾倍","0.05")}</div><div class="grid2" style="margin-top:8px">${num("ticket","一般日客單價")}${num("holidayTicket","假日客單價")}</div>`
+    : `<div class="grid3">${num("ecomDays","一般日天數")}${num("campaignDays","活動檔期日天數")}${num("ticket","客單價")}</div>`;
+  const step3 = state.mode === "store"
+    ? state.slots.map((slot, index) => `<div class="grid3" style="margin-bottom:8px"><label class="f">時段<input data-slot="name" data-i="${index}" value="${slot.name}"></label><label class="f">占比 %<input data-slot="share" data-i="${index}" type="number" value="${slot.share}"></label><label class="f">客單<input data-slot="ticket" data-i="${index}" type="number" value="${slot.ticket}"></label></div>`).join("") + `<button type="button" id="add">＋ 加一個時段</button><p class="hint">${result.share === 100 ? "占比合計 100%。" : "占比現在是 " + result.share + "%，要到 100%。"}</p>`
+    : `<div class="grid4" style="margin-bottom:6px;font-size:12px;color:#6d685f"><span>來源</span><span>占比 %</span><span>轉換率 %</span><span>每筆成本</span></div>` + state.sources.map((row, index) => `<div class="grid4" style="margin-bottom:8px"><label class="f"><input data-src="name" data-i="${index}" value="${row.name}"></label><label class="f"><input data-src="share" data-i="${index}" type="number" value="${row.share}"></label><label class="f"><input data-src="cvr" data-i="${index}" type="number" value="${row.cvr}"></label><label class="f"><input data-src="cpa" data-i="${index}" type="number" value="${row.cpa}"></label><span class="hint" style="grid-column:1/-1">${row.who || ""}。${row.do || ""} 約 ${Math.round(result.orders * row.share / 100)} 筆。</span></div>`).join("") + `<p class="hint">${result.share === 100 ? "占比合計 100%。" : "占比現在是 " + result.share + "%。"}</p>`;
+  document.getElementById("form").innerHTML = `
+    <section class="step"><h2><span class="n">1</span> 一個月要做多少</h2><p>可以直接填目標。留 0 就用「想賺的錢 ÷ 淨利率」回推。</p>
+      <div class="modes" style="margin-top:0"><span class="hint" style="margin:8px 0">回推或直接填，兩個都留著。</span></div>
+      <div class="grid3">${num("profit","每月想賺多少")}${num("margin","淨利率 %")}${num("goal","直接填目標（0＝回推）")}</div>
+      <div style="margin-top:8px">${num("last","上月（或去年同月）營業額")}</div></section>
+    <section class="step"><h2><span class="n">2</span> 拆成每天要做多少</h2><p>${state.mode === "store" ? "平日和假日分開，才不會把假日的量平均到平日。" : "一般日和檔期分開。檔期先用一般日的 1.3 倍估。"}</p>${step2}
+      <div class="grid2" style="margin-top:8px"><div class="mini">一般日每天要做<br><b>${Math.round(result.weekday).toLocaleString()} 元</b><br>約 ${result.guests.toFixed(0)} 筆</div><div class="mini">${state.mode === "store" ? "假日" : "檔期"}每天要做<br><b>${Math.round(result.holiday).toLocaleString()} 元</b><br>約 ${result.holidayGuests.toFixed(0)} 筆</div></div></section>
+    <section class="step"><h2><span class="n">3</span> ${state.mode === "store" ? "拆成時段" : "拆成流量來源"}</h2><p>${state.mode === "store" ? "午餐、晚餐、其他要加到 100%。" : "每個來源的轉換率差很多。先填占比和轉換，才知道要接觸多少人。"}</p>${step3}</section>
+    <section class="step"><h2><span class="n">4</span> 訂單從哪裡來</h2><p>老客回購、轉介紹、新客。缺口才是這個月要去找的人。</p>
+      <div class="grid3">${num("regulars","目前的老客人數")}${num("repeat","老客每月平均回購","0.01")}${num("refer","每位老客每月推薦幾位","0.01")}</div>
+      <div class="grid3" style="margin-top:8px">${num("convert","新客轉換率 %")}${num("newCost","一位新客要花多少")}${num("recallCost","召回一次要花多少")}</div>
+      <div class="mini" style="margin-top:8px">每月訂單 ${Math.round(result.orders).toLocaleString()} － 回購 ${Math.round(result.repeats).toLocaleString()} － 轉介紹 ${Math.round(result.referred).toLocaleString()} ＝ 還要找新客 <b>${Math.round(result.gap).toLocaleString()}</b><br>要接觸約 ${Math.round(result.contacts).toLocaleString()} 人，開發成本約 ${Math.round(result.cost).toLocaleString()} 元。</div></section>
+    <section class="step"><h2><span class="n">5</span> 客單價怎麼拉高</h2><p>客單價＝平均單價 × 每筆件數。改其中一邊，看每個月差多少。</p>
+      <div class="grid2">${num("price","平均每件單價")}${num("items","每筆件數","0.1")}</div>
+      <div class="grid2" style="margin-top:8px">${num("altPrice","如果單價改成")}${num("altItems","如果件數改成","0.1")}</div>
+      <table class="sheet" style="margin-top:8px"><tr><th>情境</th><th>客單價</th><th>每月多或少</th></tr>
+        <tr><td>現在</td><td>${Math.round(state.price * state.items).toLocaleString()} 元</td><td>—</td></tr>
+        <tr><td>改單價</td><td>${Math.round(state.altPrice * state.items).toLocaleString()} 元</td><td>${Math.round((state.altPrice - state.price) * state.items * result.orders).toLocaleString()} 元</td></tr>
+        <tr><td>改件數</td><td>${Math.round(state.price * state.altItems).toLocaleString()} 元</td><td>${Math.round(state.price * (state.altItems - state.items) * result.orders).toLocaleString()} 元</td></tr>
+      </table></section>`;
+  document.querySelectorAll("[data-k]").forEach((input) => input.oninput = () => { state[input.dataset.k] = Number(input.value); paint(); Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-slot]").forEach((input) => input.oninput = () => { state.slots[input.dataset.i][input.dataset.slot] = input.dataset.slot === "name" ? input.value : Number(input.value); paint(); Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-src]").forEach((input) => input.oninput = () => { const row = state.sources[input.dataset.i]; row[input.dataset.src] = input.dataset.src === "name" ? input.value : Number(input.value); paint(); Jiuwo.save(KEY, state); });
+  const add = document.getElementById("add");
+  if (add) add.onclick = () => { state.slots.push({ name: "新時段", share: 0, ticket: state.ticket }); render(); };
+  paint();
 }
-document.getElementById("mode").onclick = () => { state.mode = state.mode === "store" ? "ecom" : "store"; render(); };
+function paint() {
+  const result = compute();
+  const total = result.orders || 1;
+  const a = Math.min(100, result.repeats / total * 100);
+  const b = Math.min(100 - a, result.referred / total * 100);
+  const growth = (result.growth * 100).toFixed(1);
+  document.getElementById("side").innerHTML = `<div class="goal"><small>每月營業目標</small><b>${Math.round(result.goal).toLocaleString()} 元</b><span style="font-size:12px;color:rgba(255,255,255,.7)">想賺 ${Number(state.profit).toLocaleString()} 元，淨利率 ${state.margin}%，比上月 ${growth}%</span></div>
+    <section class="card"><h2 style="font-size:15px;margin:0 0 8px">拆完的結果</h2>
+      <div class="rowline"><span>一般日每天</span><b>${Math.round(result.weekday).toLocaleString()} 元</b></div>
+      <div class="rowline"><span>${state.mode === "store" ? "假日" : "檔期"}每天</span><b>${Math.round(result.holiday).toLocaleString()} 元</b></div>
+      <div class="rowline"><span>每月訂單數</span><b>${Math.round(result.orders).toLocaleString()} 筆</b></div>
+      <div class="rowline"><span>平均客單價</span><b>${Math.round(state.price * state.items).toLocaleString()} 元</b></div>
+    </section>
+    <section class="card"><h2 style="font-size:15px;margin:0 0 8px">訂單從哪裡來（每月）</h2>
+      <div class="stack"><i style="width:${a}%;background:#3aaa7a"></i><i style="width:${b}%;background:#e0b13d"></i><i style="flex:1;background:#3d7ea6"></i></div>
+      <p class="legend">回購 ${Math.round(result.repeats).toLocaleString()} · 轉介紹 ${Math.round(result.referred).toLocaleString()} · 新客 ${Math.round(result.gap).toLocaleString()}</p>
+    </section>
+    <div class="note ${Math.abs(result.growth) <= 0.2 ? "ok" : "warn"}">目標比上月 ${growth}%。${Math.abs(result.growth) <= 0.2 ? "落在兩成以內，先照這個拆到每天。" : "超過兩成，先確認座位、人力或庫存扛不扛得住。"}</div>`;
+}
+document.getElementById("store").onclick = () => { state.mode = "store"; render(); };
+document.getElementById("ecom").onclick = () => { state.mode = "ecom"; render(); };
 document.getElementById("csv").onclick = () => {
   const result = compute();
-  const rows = [["項目","數字"], ["目標", result.goal], ["平日每天", Math.round(result.weekday || result.day || 0)], ["新客缺口", Math.round(result.gap || 0)], ["獲客成本", Math.round(result.cost || 0)], ["下月新熟客", Math.round((result.gap || 0) * state.stick)]];
-  if (state.mode === "ecom") state.sources.forEach((row) => rows.push([row.name + " CPA", row.cpa]));
-  Jiuwo.csv("營業目標.csv", rows);
+  Jiuwo.csv("營業目標.csv", [["項目","數字"], ["目標", Math.round(result.goal)], ["一般日每天", Math.round(result.weekday)], ["檔期或假日每天", Math.round(result.holiday)], ["每月訂單", Math.round(result.orders)], ["新客缺口", Math.round(result.gap)], ["開發成本", Math.round(result.cost)]]);
 };
 document.getElementById("print").onclick = () => window.print();
 document.getElementById("clear").onclick = () => { Object.keys(DEMO).forEach((key) => { if (typeof DEMO[key] === "number") state[key] = 0; }); render(); };

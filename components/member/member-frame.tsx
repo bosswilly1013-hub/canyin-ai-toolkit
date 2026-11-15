@@ -474,7 +474,7 @@ function HomeView(props: {
                 const done = list.filter((article) => props.seen.includes(article.slug)).length;
                 return (
                   <button type="button" key={topic.id} className={filter === topic.id ? "cl-it on" : "cl-it"} onClick={() => setFilter(topic.id)}>
-                    <i className={`ico ico-${topic.id}`} />
+                    <TopicIcon id={topic.id} />
                     <span className="nm">{topic.name}</span>
                     <span className="cnt">{list.length}</span>
                   </button>
@@ -516,7 +516,7 @@ function HomeView(props: {
                 <div className="grid">
                   {hits.map(({ article, snippet }) => (
                     <a key={article.slug} className="card" href={`/#/c/${article.slug}`}>
-                      <span className={`thumb cover-${article.category}`}><small>{articleKind(article)}</small></span>
+                      <span className="thumb"><CoverArt topic={article.category} title={article.title} slug={article.slug} /><small>{articleKind(article)}</small></span>
                       <span className="body">
                         <span className="tag">{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
                         <h3>{highlight(article.title, query)}</h3>
@@ -592,10 +592,49 @@ function HomeView(props: {
     </>
   );
 }
+function TopicIcon({ id }: { id: string }) {
+  const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const body = {
+    ai: <><rect {...stroke} x="5" y="5" width="14" height="14" rx="2" /><path {...stroke} d="M9 9h6M9 12h6M9 15h3" /></>,
+    claude: <path {...stroke} d="M5 7h14v8H9l-4 3z" />,
+    tools: <path {...stroke} d="M14 6l4 4-8 8H6v-4zM13 7l4 4" />,
+    buy: <path {...stroke} d="M4 8h16l-1.5 10h-13zM8 8V6a4 4 0 0 1 8 0v2" />,
+    people: <><circle {...stroke} cx="9" cy="8" r="2.5" /><circle {...stroke} cx="16" cy="9" r="2" /><path {...stroke} d="M4 18c.8-2.6 2.6-4 5-4s4.2 1.4 5 4M14 14c1.4-.3 2.8.2 3.6 1.6" /></>,
+    finance: <path {...stroke} d="M4 18V8M9 18V5M14 18v-7M19 18V9" />,
+    ads: <path {...stroke} d="M5 10v4l8 3V7zM16 9a4 4 0 0 1 0 6" />,
+    social: <path {...stroke} d="M6 7h12v8H9l-3 3z" />,
+    shop: <path {...stroke} d="M4 9h16l-1 10H5zM8 9l1-4h6l1 4" />,
+    loyalty: <path {...stroke} d="M12 19s-7-4.2-7-8.2A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.8C19 14.8 12 19 12 19z" />,
+    expand: <path {...stroke} d="M4 18V9l8-4 8 4v9M9 18v-5h6v5" />,
+    mind: <><path {...stroke} d="M9 18h6M10 18c0-3 1-4 2-6 2-1 4-2 4-5a4 4 0 0 0-8 0c0 2 1 3 2 4" /></>,
+  }[id] || <circle {...stroke} cx="12" cy="12" r="7" />;
+  return <i className="ico" aria-hidden="true"><svg viewBox="0 0 24 24">{body}</svg></i>;
+}
+
+function CoverArt({ topic, title, slug }: { topic: string; title: string; slug: string }) {
+  const bg: Record<string, string> = {
+    ai: "#14241c", claude: "#1b2433", tools: "#2a1c12", buy: "#163028", people: "#2a1822", finance: "#241c12",
+    ads: "#2a1418", social: "#142430", shop: "#241830", loyalty: "#2a1820", expand: "#12302a", mind: "#241e14",
+  };
+  const n = [...slug].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const label = title.length > 18 ? `${title.slice(0, 18)}…` : title;
+  return (
+    <svg viewBox="0 0 640 360" role="img" aria-label={title}>
+      <rect width="640" height="360" fill={bg[topic] || "#16160f"} />
+      <circle cx={70 + (n % 160)} cy="86" r="34" fill="none" stroke="#d6ef4a" strokeWidth="3" />
+      <rect x="250" y="48" width="150" height="92" rx="14" fill="none" stroke="#f4efe6" strokeWidth="3" opacity="0.75" />
+      <path d="M270 78h110M270 100h70" stroke="#d6ef4a" strokeWidth="6" strokeLinecap="round" />
+      <path d="M48 230h180M48 258h120" stroke="#f4efe6" strokeWidth="8" strokeLinecap="round" opacity="0.85" />
+      <text x="48" y="320" fill="#f7f4ea" fontSize="28" fontFamily="PingFang TC, Noto Sans TC, sans-serif">{label}</text>
+    </svg>
+  );
+}
+
 function ArticleCard({ article, seen, step }: { article: Article; seen: boolean; step?: number }) {
   return (
     <a className={seen ? "card read" : "card"} href={`/#/c/${article.slug}`}>
-      <span className={`thumb cover-${article.category}`}>
+      <span className="thumb">
+        <CoverArt topic={article.category} title={article.title} slug={article.slug} />
         {step ? <span className="step">STEP {step}</span> : null}
         {isNew(article.date) ? <span className="nw">新</span> : null}
         <span className="seen">✓ 看過</span>

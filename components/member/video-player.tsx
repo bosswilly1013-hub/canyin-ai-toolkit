@@ -34,7 +34,7 @@ export function VideoPlayer({ src }: { src: string }) {
       />
       {!playing ? (
         <button type="button" className="big-play" onClick={toggle} aria-label="播放">
-          播放
+          <i />
         </button>
       ) : null}
       <div className="player-bar">

@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { ToolFrame } from "@/components/tool-frame";
-import { ReportsTool } from "@/components/tools/reports-tool";
-import { getTool } from "@/lib/catalog";
+import { ToolJump } from "@/components/tool-jump";
 
-const tool = getTool("reports");
-export const metadata: Metadata = { title: tool.name, description: tool.problem };
+export const metadata: Metadata = { title: "每月報表" };
 
 export default function Page() {
-  return (
-    <ToolFrame slug="reports">
-      <ReportsTool />
-    </ToolFrame>
-  );
+  return <ToolJump href="/downloads/report.html" name="每月報表" />;
 }

@@ -55,7 +55,7 @@ export type ToolInfo = {
 export const tools: ToolInfo[] = [
   {
     slug: "break-even",
-    href: "/tools/break-even",
+    href: "/downloads/break-even.html",
     name: "損益兩平計算器",
     problem: "一個月要做到多少營業額、每天幾位客人，才把房租和人事打平。",
     answers:
@@ -66,7 +66,7 @@ export const tools: ToolInfo[] = [
   },
   {
     slug: "delivery",
-    href: "/tools/delivery",
+    href: "/downloads/delivery-calc.html",
     name: "外送定價反推",
     problem: "外送價要賣多少，平台抽成之後還留得住你要的毛利。",
     answers:
@@ -86,7 +86,7 @@ export const tools: ToolInfo[] = [
   },
   {
     slug: "targets",
-    href: "/tools/targets",
+    href: "/downloads/targets.html",
     name: "營業目標拆解",
     problem: "月目標拆成平日、週末、午餐、晚餐，以及回購、介紹、新客各要幾位。",
     answers:
@@ -97,7 +97,7 @@ export const tools: ToolInfo[] = [
   },
   {
     slug: "reports",
-    href: "/tools/reports",
+    href: "/downloads/report.html",
     name: "報表分析",
     problem: "把每日營業或損益表丟進來，看趨勢、月增減和成本結構。",
     answers:
@@ -107,7 +107,7 @@ export const tools: ToolInfo[] = [
   },
   {
     slug: "positioning",
-    href: "/tools/positioning",
+    href: "/downloads/position.html",
     name: "品牌定位圖",
     problem: "用兩個你在乎的軸，把你的店和競爭者擺在同一張圖上。",
     answers:
@@ -117,7 +117,7 @@ export const tools: ToolInfo[] = [
   },
   {
     slug: "floor-plan",
-    href: "/tools/floor-plan",
+    href: "/downloads/floor.html",
     name: "店面平面圖",
     problem: "幾坪的店，桌子和走道夠不夠走。",
     answers:
@@ -195,7 +195,7 @@ export type StartStep = {
 
 export const startSteps: StartStep[] = [
   {
-    href: "/tools/break-even",
+    href: "/downloads/break-even.html",
     title: "先算一個月要做多少才不虧",
     detail: "房租、人事、水電填進去。人事請把你自己的薪水也算上，不然會以為賺到，其實是在付自己的生活費。",
   },
@@ -205,27 +205,27 @@ export const startSteps: StartStep[] = [
     detail: "用量和單價的單位要對齊，例如 0.12 公斤配「每公斤多少錢」。有月銷量，才看得懂哪些菜在養店、哪些在佔位子。",
   },
   {
-    href: "/tools/delivery",
+    href: "/downloads/delivery-calc.html",
     title: "外送不要直接用店內價上架",
     detail: "抽成從售價扣，食材卻不會變便宜。先反推售價，再去平台後台改。整份菜單可以貼 CSV。",
   },
   {
-    href: "/tools/targets",
+    href: "/downloads/targets.html",
     title: "月目標拆成每天、每個時段",
     detail: "兩平是下限。你想賺的那個營業額，要變成平日幾位、週末幾位、其中幾位是新客。",
   },
   {
-    href: "/tools/reports",
+    href: "/downloads/report.html",
     title: "有日報之後，看趨勢而不是感覺",
     detail: "每天記營業額和來客數就夠開始。檔案留在這台電腦，本站沒有後端可以收走它。",
   },
   {
-    href: "/tools/positioning",
+    href: "/downloads/position.html",
     title: "先講清楚你跟隔壁差在哪",
     detail: "軸的名字用客人聽得懂的話，例如價格、速度、好不好拍照。圖是拿來吵架用的，不是拿來裝準。",
   },
   {
-    href: "/tools/floor-plan",
+    href: "/downloads/floor.html",
     title: "位子和走道，畫一張草圖就好",
     detail: "這版只看走不走得過。要給設計師或房東的正式圖，用導覽裡的 Sweet Home 3D。",
   },

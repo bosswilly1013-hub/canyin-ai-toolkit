@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { ToolFrame } from "@/components/tool-frame";
-import { DeliveryTool } from "@/components/tools/delivery-tool";
-import { getTool } from "@/lib/catalog";
+import { ToolJump } from "@/components/tool-jump";
 
-const tool = getTool("delivery");
-export const metadata: Metadata = { title: tool.name, description: tool.problem };
+export const metadata: Metadata = { title: "外送定價" };
 
 export default function Page() {
-  return (
-    <ToolFrame slug="delivery">
-      <DeliveryTool />
-    </ToolFrame>
-  );
+  return <ToolJump href="/downloads/delivery-calc.html" name="外送定價" />;
 }

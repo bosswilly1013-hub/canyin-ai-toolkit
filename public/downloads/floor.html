@@ -1,46 +1,71 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
-<link rel="stylesheet" href="/downloads/tool-skin.css">
+<link rel="stylesheet" href="/downloads/tool-frame.css">
 <title>店面平面圖</title>
 <style>
-  body { margin: 0; font-family: sans-serif; background: #f3f1ea; color: #14221c; }
-  header, .tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; }
-  header { background: #14221c; color: #fff; }
-  main { display: grid; grid-template-columns: 230px 1fr 250px; }
-  #stage { position: relative; height: 78vh; overflow: auto; background: #fff; }
-  svg { background-image: linear-gradient(#eee 1px, transparent 1px), linear-gradient(90deg, #eee 1px, transparent 1px); background-size: 20px 20px; }
-  aside { padding: 8px; overflow: auto; font-size: 13px; max-height: 78vh; }
-  button.on { background: #e15a2b; color: #fff; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } aside, #stage { max-height: none; height: auto; } }
-  @media print { header, .tools, aside { display: none; } }
+  body.tool { background: #eceae4; }
+  .floor { display: grid; grid-template-columns: 280px minmax(0, 1fr) 260px; height: 100vh; }
+  #lib, #info { overflow: auto; background: #f7f5f0; padding: 12px; font-size: 13px; }
+  #lib button, .stage-bar button, #info button { border: 1px solid #e6e1d6; background: #fff; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+  #lib button.on, .stage-bar button.on, button.lime { background: #d6ef4a; border-color: transparent; font-weight: 800; }
+  .stage-wrap { position: relative; display: flex; flex-direction: column; min-width: 0; background:
+    linear-gradient(#e4e0d6 1px, transparent 1px), linear-gradient(90deg, #e4e0d6 1px, transparent 1px);
+    background-size: 24px 24px; background-color: #f3f1ea; }
+  .stage-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; background: rgba(255,255,255,.92); border-bottom: 1px solid #e6e1d6; }
+  #stage { position: relative; flex: 1; overflow: auto; }
+  svg { background: transparent; }
+  .welcome { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(22,22,15,.28); z-index: 5; }
+  .welcome .box { width: min(460px, 92%); background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.18); }
+  .welcome li { margin: 8px 0; }
+  .side-title { font-weight: 800; margin: 12px 0 6px; }
+  @media (max-width: 900px) { .floor { grid-template-columns: 1fr; height: auto; } #stage { min-height: 70vh; } }
+  @media print { .stage-bar, #lib, #info, .welcome { display: none; } }
 </style>
-<header>
-  <b>久沃平面圖</b>
-  <button type="button" id="undo">復原</button>
-  <button type="button" id="redo">重做</button>
-  <button type="button" id="tool-select" class="on">選取</button>
-  <button type="button" id="tool-wall">畫牆</button>
-  <button type="button" id="tool-measure">量尺寸</button>
-  <button type="button" id="rect">方正店</button>
-  <button type="button" id="lshape">L 型</button>
-  <label>牆厚 <input id="thick" type="number" style="width:3.2rem"></label>
-  <button type="button" id="check">走道檢查</button>
-  <button type="button" id="png">輸出圖面</button>
-  <select id="paper"><option>A4</option><option>A3</option></select>
-  <label><input id="withlist" type="checkbox" checked> 含清單</label>
-  <button type="button" id="csv">設備清單</button>
-  <button type="button" id="json">存專案</button>
-  <label>開專案 <input id="open" type="file" accept=".json"></label>
-  <button type="button" id="print">列印</button>
-  <button type="button" id="demo">看範例</button>
-  <button type="button" id="blank">清空</button>
-</header>
-<main>
+<body class="tool">
+<div class="floor">
   <aside id="lib"></aside>
-  <div id="stage"></div>
+  <div class="stage-wrap">
+    <div class="stage-bar">
+      <button type="button" id="undo">復原</button>
+      <button type="button" id="redo">重做</button>
+      <button type="button" id="tool-select" class="on">選取</button>
+      <button type="button" id="tool-wall">畫牆</button>
+      <button type="button" id="tool-measure">量尺寸</button>
+      <button type="button" id="rect">方正店</button>
+      <button type="button" id="lshape">L 型</button>
+      <label>牆厚 <input id="thick" type="number" style="width:3.2rem"></label>
+      <button type="button" id="check">走道檢查</button>
+      <span style="flex:1"></span>
+      <button type="button" id="blank">清空</button>
+      <button type="button" id="demo">看範例</button>
+      <button type="button" class="lime" id="png">輸出圖面</button>
+      <select id="paper"><option>A4</option><option>A3</option></select>
+      <label><input id="withlist" type="checkbox" checked> 含清單</label>
+      <button type="button" id="csv">設備清單</button>
+      <button type="button" id="json">存專案</button>
+      <label>開專案 <input id="open" type="file" accept=".json"></label>
+      <button type="button" id="print">列印</button>
+    </div>
+    <div id="stage"></div>
+    <div class="welcome" id="welcome">
+      <div class="box">
+        <h2>開始畫這間店</h2>
+        <ol>
+          <li>用「畫牆」拉出店面，或按「方正店」直接給長寬。</li>
+          <li>左邊點設備，放到平面上，再拖到對的位置。</li>
+          <li>走道檢查看過之後，再輸出圖面。</li>
+        </ol>
+        <div class="actions">
+          <button type="button" class="lime" id="welcome-demo">看範例</button>
+          <button type="button" id="welcome-blank">從空白開始</button>
+        </div>
+        <p class="hint">圖只存在這台裝置。刪掉瀏覽器資料才會不見。</p>
+      </div>
+    </div>
+  </div>
   <aside id="info"></aside>
-</main>
+</div>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
 const KEY = "jiuwo.tool.floor.v4";
@@ -229,7 +254,7 @@ document.addEventListener("keydown", (event) => {
 });
 const groups = {};
 LIB.forEach((item, index) => { (groups[item[0]] = groups[item[0]] || []).push(index); });
-document.getElementById("lib").innerHTML = `<p>${LIB.length} 項設備</p>` + Object.entries(groups).map(([cat, indexes]) => `<details open><summary>${cat} ${indexes.length}</summary>${indexes.map((index) => `<button type="button" data-lib="${index}" style="display:block;margin:3px 0">${LIB[index][1]} ${LIB[index][2]}×${LIB[index][3]}</button>`).join("")}</details>`).join("") +
+document.getElementById("lib").innerHTML = `<p class="side-title">空間</p><p class="hint">店名先寫在心裡。左邊點設備就放到圖上。</p><p class="side-title">畫出店面格局</p><button type="button" id="go-wall" class="lime">用拉線畫牆</button><p class="hint">方正店直接填寬和深。L 型會再問缺角。</p><p class="side-title">設備 ${LIB.length} 項</p>` + Object.entries(groups).map(([cat, indexes]) => `<details><summary>${cat} ${indexes.length}</summary>${indexes.map((index) => `<button type="button" data-lib="${index}" style="display:block;width:100%;text-align:left;margin:3px 0">${LIB[index][1]} ${LIB[index][2]}×${LIB[index][3]}</button>`).join("")}</details>`).join("") +
   `<h3>自訂</h3><input id="cname" placeholder="名稱"><input id="cw" type="number" placeholder="寬" style="width:3rem"><input id="ch" type="number" placeholder="深" style="width:3rem"><button type="button" id="cadd">放上平面圖</button>`;
 document.querySelectorAll("[data-lib]").forEach((button) => button.onclick = () => {
   const spec = LIB[button.dataset.lib];
@@ -292,5 +317,8 @@ document.getElementById("png").onclick = () => {
 document.getElementById("print").onclick = () => window.print();
 document.getElementById("demo").onclick = () => { snap(); state = structuredClone(DEMO); save(); };
 document.getElementById("blank").onclick = () => { snap(); state.items = []; state.measures = []; state.selected = []; save(); };
+document.getElementById("go-wall").onclick = () => setTool("wall");
+document.getElementById("welcome-demo").onclick = () => { document.getElementById("welcome").hidden = true; document.getElementById("demo").click(); };
+document.getElementById("welcome-blank").onclick = () => { document.getElementById("welcome").hidden = true; document.getElementById("blank").click(); };
 draw();
 </script>
