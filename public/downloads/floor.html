@@ -304,7 +304,19 @@ document.getElementById("undo").onclick = () => { if (!past.length) return; futu
 document.getElementById("redo").onclick = () => { if (!future.length) return; past.push(JSON.stringify(state)); state = JSON.parse(future.pop()); save(); };
 document.getElementById("csv").onclick = () => Jiuwo.csv("設備清單.csv", [["分類","名稱","寬","深","X","Y","角度"], ...state.items.map((item) => [item.cat, item.name, item.w, item.h, item.x, item.y, item.rot || 0])]);
 document.getElementById("json").onclick = () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "平面圖.json"; a.click(); };
-document.getElementById("open").onchange = async (event) => { state = JSON.parse(await event.target.files[0].text()); save(); };
+document.getElementById("open").onchange = async (event) => {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const next = JSON.parse(await file.text());
+    if (!next || !Array.isArray(next.items) || !Array.isArray(next.poly)) throw new Error("bad");
+    state = next;
+    save();
+  } catch (error) {
+    alert("這份平面圖檔讀不起來。請選先前存下來的專案。");
+  }
+};
 document.getElementById("png").onclick = () => {
   const plan = document.getElementById("plan");
   const paper = document.getElementById("paper").value;

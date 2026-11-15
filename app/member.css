@@ -199,7 +199,8 @@
 .hits b { color: #1A1A16; }
 @media (max-width: 800px) {
   .hero-in, .layout, .dash-grid, .quick { grid-template-columns: 1fr; }
-  .m-head .tabs { display: none; }
+  .m-head { flex-wrap: wrap; }
+  .m-head .tabs { display: flex; flex-wrap: wrap; width: 100%; }
   .toc { display: none; }
   .toc.open { display: flex; position: fixed; inset: 56px 0 0; background: #fafaf7; z-index: 40; overflow: auto; padding: 12px; }
 }
@@ -245,12 +246,12 @@
   .side { display: none; }
   .side.open { display: grid; position: fixed; inset: 0; top: 56px; background: var(--paper); z-index: 25; padding: 12px; overflow: auto; }
   .drawer { display: inline-flex; }
-  .m-head nav { display: none; }
+  .m-head nav { display: flex; flex-wrap: wrap; width: 100%; margin-left: 0; }
 }
 @media print {
   .m-head, .gate, .side, .toast, .no-print { display: none !important; }
   .member { background: white; color: black; }
-  .read { max-width: none; }
+  .read, .viewer, .viewer.read { position: static !important; overflow: visible !important; height: auto !important; max-width: none; }
 }
 .reveal { animation: rise .5s ease both; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

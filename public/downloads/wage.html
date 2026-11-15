@@ -12,7 +12,8 @@
 <label>時薪 <input id="wage" type="number"></label>
 <label>這週時數 <input id="hours" type="number"></label>
 <p id="out"></p>
-<button id="clear" type="button">清空示範資料</button>
+<button id="clear" type="button">清空數字</button>
+<button id="demo" type="button">看一個例子</button>
 </main>
 <script>
 const KEY = "jiuwo.tool.wage";
@@ -23,10 +24,16 @@ function write() {
   const data = {};
   ids.forEach((id) => { data[id] = document.getElementById(id).value; });
   localStorage.setItem(KEY, JSON.stringify(data));
-  document.getElementById("out").textContent = data.name + " 這週約 " + Math.round(Number(data.wage) * Number(data.hours)) + " 元。";
+  const wage = Number(data.wage);
+  const hours = Number(data.hours);
+  const out = document.getElementById("out");
+  if (!data.name && !data.wage && !data.hours) { out.textContent = "先寫姓名、時薪和這週時數。"; return; }
+  if (!(wage > 0) || !(hours > 0) || !Number.isFinite(wage) || !Number.isFinite(hours)) { out.textContent = "時薪和時數都要填大於 0 的數字。"; return; }
+  out.textContent = (data.name || "這位") + " 這週約 " + Math.round(wage * hours).toLocaleString() + " 元。";
 }
 const saved = read();
 ids.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = ""; }); write(); };
+document.getElementById("demo").onclick = () => { ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
 write();
 </script>

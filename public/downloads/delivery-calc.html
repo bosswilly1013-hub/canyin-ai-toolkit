@@ -66,6 +66,7 @@ const DEMO = {
   ],
 };
 let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
+function esc(text) { return String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch])); }
 function roundTo(value) { const step = Number(state.round) || 1; return Math.ceil(value / step) * step; }
 function gross(price, cost) { return price > 0 ? (price - cost) / price : 0; }
 function render() {
@@ -92,18 +93,18 @@ function render() {
     <div><small>照原價上外送，平台抽完</small><b>${((shopAvg * (1 - fee / 100) - fee / 100) * 100).toFixed(1)}%</b><span>用第一個平台的抽成粗估</span></div>
     <div><small>你的外送價低於成本</small><b>${loss} 道</b></div>
     <div class="hot"><small>你已填的外送實收毛利</small><b>${mineCount ? (mineGross / mineCount * 100).toFixed(1) : "—"}%</b></div>`;
-  const head = `<tr><th>菜名／分類</th><th>成本</th><th>店內價</th><th>店內毛利</th>${state.platforms.map((platform) => `<th>${platform.name}（抽 ${platform.fee}%）<br>要賣多少</th><th>你的外送價</th><th>實收毛利</th>`).join("")}<th></th></tr>`;
+  const head = `<tr><th>菜名／分類</th><th>成本</th><th>店內價</th><th>店內毛利</th>${state.platforms.map((platform) => `<th>${esc(platform.name)}（抽 ${platform.fee}%）<br>要賣多少</th><th>你的外送價</th><th>實收毛利</th>`).join("")}<th></th></tr>`;
   document.getElementById("grid").innerHTML = head + state.dishes.map((dish, index) => {
     const cells = state.platforms.map((platform) => {
-      const need = dish.cost ? roundTo(dish.cost / (1 - platform.fee / 100)) : 0;
+      const need = dish.cost && platform.fee < 100 ? roundTo(dish.cost / (1 - platform.fee / 100)) : 0;
       const mine = Number((dish.mine || {})[platform.name] || "");
       const net = mine ? mine * (1 - platform.fee / 100) : 0;
       const g = mine ? gross(net, dish.cost) : null;
       const shopG = gross(dish.price, dish.cost);
       const klass = g == null ? "" : g < 0 ? "bad" : g < shopG ? "mid" : "ok";
-      return `<td>${need || ""}</td><td><input data-mine="${index}" data-p="${platform.name}" type="number" value="${mine || ""}"></td><td class="${klass}">${g == null ? "" : (g*100).toFixed(1) + "%"}</td>`;
+      return `<td>${platform.fee >= 100 ? "抽成要小於 100" : (need || "")}</td><td><input data-mine="${index}" data-p="${esc(platform.name)}" type="number" value="${mine || ""}"></td><td class="${klass}">${g == null ? "" : (g*100).toFixed(1) + "%"}</td>`;
     }).join("");
-    return `<tr><td><input data-f="name" data-i="${index}" value="${dish.name}"><br><input data-f="cat" data-i="${index}" value="${dish.cat}"></td><td><input data-f="cost" data-i="${index}" type="number" value="${dish.cost}"></td><td><input data-f="price" data-i="${index}" type="number" value="${dish.price}"></td><td>${(gross(dish.price, dish.cost)*100).toFixed(1)}%</td>${cells}<td><button type="button" data-del="${index}">刪</button></td></tr>`;
+    return `<tr><td><input data-f="name" data-i="${index}" value="${esc(dish.name)}"><br><input data-f="cat" data-i="${index}" value="${esc(dish.cat)}"></td><td><input data-f="cost" data-i="${index}" type="number" value="${dish.cost}"></td><td><input data-f="price" data-i="${index}" type="number" value="${dish.price}"></td><td>${(gross(dish.price, dish.cost)*100).toFixed(1)}%</td>${cells}<td><button type="button" data-del="${index}">刪</button></td></tr>`;
   }).join("");
   document.getElementById("round").value = state.round;
   bind();
@@ -132,7 +133,12 @@ document.getElementById("tpl").onclick = () => Jiuwo.xlsx("外送菜單範本.xl
 document.getElementById("exp").onclick = () => Jiuwo.xlsx("外送定價.xlsx", [["菜名","分類","成本","店內價","你的外送價"], ...state.dishes.map((dish) => [dish.name, dish.cat, dish.cost, dish.price, Object.values(dish.mine || {})[0] || ""])]);
 document.getElementById("pick").onclick = () => document.getElementById("imp").click();
 document.getElementById("imp").onchange = async (event) => {
-  const rows = await Jiuwo.read(event.target.files[0]);
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  let rows;
+  try { rows = await Jiuwo.read(file); } catch (error) { alert("這份菜單讀不起來。請用範本的欄位。"); return; }
+  if (!rows || rows.length < 2) { alert("表格裡沒有菜名。"); return; }
   const next = rows.slice(1).filter((row) => row[0]).map((row) => ({ name: row[0], cat: row[1] || "", cost: Number(row[2]) || 0, price: Number(row[3]) || 0, mine: {} }));
   const replace = confirm("確定＝取代現有菜單，取消＝附加在後面");
   state.dishes = replace ? next : state.dishes.concat(next);

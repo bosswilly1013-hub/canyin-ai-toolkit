@@ -66,11 +66,11 @@ function renderBody(body: string, onZoom: (src: string) => void, onCopy: (text: 
         const cells = lines.filter((line) => !/^\|?\s*-+/.test(line)).map((line) => line.split("|").filter((cell) => cell.trim() !== ""));
         return (
           <table key={`${index}-${blockIndex}`} className="path">
-            <tbody>{cells.map((row) => <tr key={row.join("-")}>{row.map((cell) => <td key={cell}>{cell.trim()}</td>)}</tr>)}</tbody>
+            <tbody>{cells.map((row, rowIndex) => <tr key={`${index}-${blockIndex}-${rowIndex}`}>{row.map((cell, cellIndex) => <td key={`${rowIndex}-${cellIndex}`}>{cell.trim()}</td>)}</tr>)}</tbody>
           </table>
         );
       }
-      if (lines.every((line) => line.startsWith("- "))) return <ul key={`${index}-${blockIndex}`}>{lines.map((line) => <li key={line}>{line.slice(2)}</li>)}</ul>;
+      if (lines.every((line) => line.startsWith("- "))) return <ul key={`${index}-${blockIndex}`}>{lines.map((line, lineIndex) => <li key={lineIndex}>{line.slice(2)}</li>)}</ul>;
       if (lines.every((line) => line.startsWith("> "))) return <blockquote key={`${index}-${blockIndex}`}>{lines.map((line) => line.slice(2)).join(" ")}</blockquote>;
       if (lines[0].startsWith("## ")) return <h2 key={`${index}-${blockIndex}`}>{lines[0].slice(3)}</h2>;
       const image = lines[0].match(/^!\[(.*)\]\((.*)\)$/);
@@ -182,8 +182,12 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     setAuthed(false);
   }
   async function enter() {
-    setChecking(true);
     setGateError("");
+    if (!password.trim()) {
+      setGateError("請輸入這個月的密碼。");
+      return;
+    }
+    setChecking(true);
     await new Promise((resolve) => setTimeout(resolve, 400));
     const hash = await sha256(password.trim());
     setChecking(false);
@@ -226,7 +230,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     return (
       <div className="gate">
         <div className="box">
-          <img src="/member/willy.jpg" alt="" width={84} height={84} style={{ borderRadius: "50%" }} />
+          <img src="/member/willy.jpg" alt="Willy" width={84} height={84} style={{ borderRadius: "50%" }} />
           <h1>久沃訂閱者專區</h1>
           <p className="lead">輸入這個月的密碼。資料留在你的裝置。</p>
           <form className="row" onSubmit={(event) => { event.preventDefault(); void enter(); }}>
@@ -255,7 +259,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
   return (
     <div className="member" data-theme={theme}>
       <header className="m-head no-print">
-        <a className="brand" href="/#/"><img src="/member/willy.jpg" alt="" /><span className="txt">久沃<span>訂閱</span></span></a>
+        <a className="brand" href="/#/"><img src="/member/willy.jpg" alt="久沃" /><span className="txt">久沃<span>訂閱</span></span></a>
         <nav className="tabs">
           <a className={!hashJourney && !hashAbout && !hashSlug && page === "home" ? "tab on" : "tab"} href="/#/">內容</a>
           <a className={page === "journey" || hashJourney ? "tab on" : "tab"} href="/#/journey">AI歷程</a>
@@ -296,7 +300,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
       {(page === "read" || hashSlug) && article ? (
         <article className="read overlay viewer">
           <header className="overlay-bar no-print">
-            <a href="/#/">←</a>
+            <a href="/#/" aria-label="回內容">←</a>
             <div className="tw">
               <span className="vcat">{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
               <span className="t">{article.title}</span>
@@ -338,7 +342,12 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
           <PathFooter article={article} articles={articles} />
         </article>
       ) : null}
-      {zoom ? <div className="modal zoom" onClick={() => setZoom("")}><img src={zoom} alt="" /></div> : null}
+      {(page === "read" || hashSlug) && !article ? (
+        <article className="read">
+          <p>找不到這篇。回 <a href="/#/">內容</a> 再挑一篇。</p>
+        </article>
+      ) : null}
+      {zoom ? <div className="modal zoom" onClick={() => setZoom("")}><img src={zoom} alt="放大後的圖片" /></div> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </div>
   );

@@ -208,7 +208,12 @@ function journalRows(month) {
 document.getElementById("exp").onclick = () => Jiuwo.xlsx(state.shop + "-" + state.month + "月.xlsx", journalRows(cur()).concat([["損耗品項","原因","數量","金額"], ...cur().waste.map((row) => [row.item, row.reason, row.qty, row.amount])]));
 document.getElementById("tpl").onclick = () => Jiuwo.xlsx("日記帳範本.xlsx", [["日","店內","外送","來客","總部配貨","進貨","費用付現","其他收入","其他支出","收銀機"], ...Array.from({length:31}, (_,i)=>[i+1,0,0,0,0,0,0,0,0,0])]);
 document.getElementById("imp").onchange = async (event) => {
-  const rows = await Jiuwo.read(event.target.files[0]);
+  const file = event.target.files && event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  let rows;
+  try { rows = await Jiuwo.read(file); } catch (error) { document.getElementById("note").textContent = "這份日記帳讀不起來。請用範本的欄位。"; return; }
+  if (!rows || !rows.length) { document.getElementById("note").textContent = "表格是空的。"; return; }
   const month = cur();
   const hasHq = (rows[0] || []).some((cell) => String(cell).includes("總部"));
   const keys = hasHq ? ["dine","delivery","guests","hq","buy","cashExp","otherIn","otherOut","register"] : ["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"];

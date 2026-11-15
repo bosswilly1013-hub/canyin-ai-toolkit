@@ -100,9 +100,19 @@ function render() {
         <tr><td>改單價</td><td>${Math.round(state.altPrice * state.items).toLocaleString()} 元</td><td>${Math.round((state.altPrice - state.price) * state.items * result.orders).toLocaleString()} 元</td></tr>
         <tr><td>改件數</td><td>${Math.round(state.price * state.altItems).toLocaleString()} 元</td><td>${Math.round(state.price * (state.altItems - state.items) * result.orders).toLocaleString()} 元</td></tr>
       </table></section>`;
-  document.querySelectorAll("[data-k]").forEach((input) => input.oninput = () => { state[input.dataset.k] = Number(input.value); paint(); Jiuwo.save(KEY, state); });
-  document.querySelectorAll("[data-slot]").forEach((input) => input.oninput = () => { state.slots[input.dataset.i][input.dataset.slot] = input.dataset.slot === "name" ? input.value : Number(input.value); paint(); Jiuwo.save(KEY, state); });
-  document.querySelectorAll("[data-src]").forEach((input) => input.oninput = () => { const row = state.sources[input.dataset.i]; row[input.dataset.src] = input.dataset.src === "name" ? input.value : Number(input.value); paint(); Jiuwo.save(KEY, state); });
+  const numOr = (input, blank) => { const n = Number(input.value); return input.value.trim() === "" ? blank : (Number.isFinite(n) ? n : null); };
+  document.querySelectorAll("[data-k]").forEach((input) => input.oninput = () => { const n = numOr(input, 0); if (n === null) return; state[input.dataset.k] = n; paint(); Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-slot]").forEach((input) => input.oninput = () => {
+    if (input.dataset.slot === "name") state.slots[input.dataset.i].name = input.value;
+    else { const n = numOr(input, 0); if (n === null) return; state.slots[input.dataset.i][input.dataset.slot] = n; }
+    paint(); Jiuwo.save(KEY, state);
+  });
+  document.querySelectorAll("[data-src]").forEach((input) => input.oninput = () => {
+    const row = state.sources[input.dataset.i];
+    if (input.dataset.src === "name") row.name = input.value;
+    else { const n = numOr(input, 0); if (n === null) return; row[input.dataset.src] = n; }
+    paint(); Jiuwo.save(KEY, state);
+  });
   const add = document.getElementById("add");
   if (add) add.onclick = () => { state.slots.push({ name: "新時段", share: 0, ticket: state.ticket }); render(); };
   paint();
@@ -124,7 +134,8 @@ function paint() {
       <div class="stack"><i style="width:${a}%;background:#3aaa7a"></i><i style="width:${b}%;background:#e0b13d"></i><i style="flex:1;background:#3d7ea6"></i></div>
       <p class="legend">回購 ${Math.round(result.repeats).toLocaleString()} · 轉介紹 ${Math.round(result.referred).toLocaleString()} · 新客 ${Math.round(result.gap).toLocaleString()}</p>
     </section>
-    <div class="note ${Math.abs(result.growth) <= 0.2 ? "ok" : "warn"}">目標比上月 ${growth}%。${Math.abs(result.growth) <= 0.2 ? "落在兩成以內，先照這個拆到每天。" : "超過兩成，先確認座位、人力或庫存扛不扛得住。"}</div>`;
+    <div class="note ${Math.abs(result.growth) <= 0.2 ? "ok" : "warn"}">目標比上月 ${growth}%。${Math.abs(result.growth) <= 0.2 ? "落在兩成以內，先照這個拆到每天。" : "超過兩成，先確認座位、人力或庫存扛不扛得住。"}</div>
+    ${Math.abs(result.share - 100) > 1 ? `<div class="note warn">${state.mode === "store" ? "時段" : "來源"}占比加起來是 ${Math.round(result.share)}%，還不是 100%。</div>` : ""}`;
 }
 document.getElementById("store").onclick = () => { state.mode = "store"; render(); };
 document.getElementById("ecom").onclick = () => { state.mode = "ecom"; render(); };

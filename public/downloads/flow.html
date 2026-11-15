@@ -41,7 +41,7 @@ function render() {
   document.getElementById("body").innerHTML = STEPS.map((step) => `<section id="${step[0]}"><p class="tag">${step[2]}</p><h2><label><input data-id="${step[0]}" type="checkbox" ${done.checked[step[0]]?"checked":""}> ${step[1]}</label></h2><p>${step[3]}</p><textarea data-note="${step[0]}">${done.notes[step[0]] || ""}</textarea></section>`).join("") +
     `<section><h2>一天的順序</h2><ol>${STEPS.map((step) => `<li>${step[2]} ${step[1]}</li>`).join("")}</ol></section>`;
   document.querySelectorAll("[data-id]").forEach((box) => box.onchange = () => { done.checked[box.dataset.id] = box.checked; render(); });
-  document.querySelectorAll("[data-note]").forEach((box) => box.onchange = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
+  document.querySelectorAll("[data-note]").forEach((box) => box.oninput = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
 }
 document.getElementById("exp").onclick = () => Jiuwo.csv("店務流程.csv", [["時段","步驟","做了","備註"], ...STEPS.map((step) => [step[2], step[1], done.checked[step[0]] ? "是" : "否", done.notes[step[0]] || ""])]);
 document.getElementById("print").onclick = () => window.print();

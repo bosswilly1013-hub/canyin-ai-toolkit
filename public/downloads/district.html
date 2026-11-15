@@ -16,7 +16,8 @@
   .help ol { padding-left: 1.2rem; }
   .pyr { display: grid; grid-template-columns: 1fr 52px 1fr; gap: 2px; align-items: center; font-size: 12px; }
   .pyr i { display: block; height: 8px; background: #1d3c34; }
-  @media (max-width: 900px) { .area { grid-template-columns: 1fr; } #map { min-height: 360px; } }
+  @media (max-width: 900px) { .area { grid-template-columns: 1fr; } #map { min-height: 360px; } .filters { align-items: stretch; } .filters input, .filters select, .filters button { min-height: 40px; } }
+  @media print { .filters { display: none; } }
 </style>
 <body class="tool">
 <div class="shell">
@@ -36,7 +37,7 @@
         <label><input type="radio" name="r" value="300">300</label>
         <label><input type="radio" name="r" value="500" checked>500</label>
         <label><input type="radio" name="r" value="800">800 公尺</label>
-        <input id="q" placeholder="里名、地標，例如高雄巨蛋">
+        <input id="q" aria-label="地標或地址" placeholder="里名、地標，例如高雄巨蛋">
         <button type="button" id="find">搜尋</button>
         <button type="button" id="add">加入比較</button>
         <select id="metric"><option value="p">人口</option><option value="h">戶數</option><option value="old">65歲以上占比</option></select>
@@ -54,7 +55,7 @@
           <li>搜尋地標，或直接拖地圖上的點。</li>
           <li>選 300、500 或 800 公尺。</li>
           <li>右邊數字是戶政人口，不是即時人潮。</li>
-          <li>超商用內建名冊，照你畫的圓來數。餐飲查地圖，查失敗也不會改成示範店。</li>
+          <li>圓圈裡的超商會寫出店名。餐飲若暫時查不到，按再試一次就好。</li>
         </ol>
       </section>
       <section class="help" id="stats"><p>正在讀村里人口…</p></section>
@@ -134,6 +135,10 @@ function pyramid(local, city) {
 let placeNote = "正在向地圖查附近店家。";
 let placeMode = "loading";
 let placeTicket = 0;
+let foodMiss = false;
+function esc(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
 function samplePlaces() {
   return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001, sample: true }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015, sample: true }];
 }
@@ -165,7 +170,7 @@ function localConvenience() {
     const lat = Number(row[0]);
     const lng = Number(row[1]);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || meters(center, { lat, lng }) > cap) continue;
-    found.push({ name: brands[row[2]] || "其他", kind: "超商", lat, lng });
+    found.push({ name: row[3] || brands[row[2]] || "其他", kind: "超商", lat, lng });
   }
   return found;
 }
@@ -226,6 +231,7 @@ async function loadPlaces() {
     if (data && saved.mode !== "admin") drawWalk();
   };
   show([], "正在向地圖查附近店家。", "loading");
+  foodMiss = false;
   let local = [];
   let localOk = false;
   try {
@@ -248,14 +254,36 @@ async function loadPlaces() {
   }
   const merged = mergePlaces(conv, food);
   if (merged.length) {
+    foodMiss = food.length === 0;
     show(merged, "", "live");
     return;
   }
   if (localOk) {
+    foodMiss = true;
     show([], "", "live");
     return;
   }
-  show(samplePlaces(), "附近店家這次沒有連上。下面兩家是示範，只用於估算。人口仍是戶政資料。", "sample");
+  foodMiss = false;
+  show(samplePlaces(), "附近店家這次沒有連上。人口仍是戶政資料。", "sample");
+}
+async function retryFood() {
+  const ticket = ++placeTicket;
+  foodMiss = false;
+  placeNote = "正在再查餐飲。";
+  if (data && saved.mode !== "admin") drawWalk();
+  let food = [];
+  try { food = await foodFromOverpass(); } catch (error) { food = []; }
+  if (ticket !== placeTicket) return;
+  if (!food.length) {
+    try { food = await shopsFromNominatim(); } catch (error) { food = []; }
+  }
+  if (ticket !== placeTicket) return;
+  const conv = places.filter((place) => place.kind === "超商");
+  places = mergePlaces(conv, food);
+  foodMiss = food.length === 0;
+  placeNote = "";
+  placeMode = "live";
+  if (data && saved.mode !== "admin") drawWalk();
 }
 function mergePlaces(a, b) {
   const seen = new Set();
@@ -333,8 +361,10 @@ function drawWalk() {
     <p>密度 ${area ? Math.round(stat.people / area).toLocaleString() : "—"} 人／平方公里</p>
     <p>${placeMode === "loading" ? "附近店家查詢中。" : shops ? "每家超商約服務 " + Math.round(stat.people / shops).toLocaleString() + " 人" : "這圈名單裡沒有超商，下面是餐飲。"}</p>
     <h3>年齡</h3>${pyramid(stat.age, stat.cityAge)}
-    <h3>附近店家 ${places.length}</h3>${placeNote ? `<p>${placeNote}</p>` : ""}${places.slice(0, 8).map((place) => `<p>${place.kind} ${place.name}</p>`).join("")}
+    <h3>附近店家 ${places.length}</h3>${placeNote ? `<p>${esc(placeNote)}</p>` : ""}${foodMiss ? `<p>餐飲店家暫時查不到，稍後重試 <button type="button" id="retry-food">再試一次</button></p>` : ""}${places.slice(0, 8).map((place) => `<p>${esc(place.kind)} ${esc(place.name)}</p>`).join("")}
     <p>比較點 ${(saved.compare||[]).length} 個</p>`;
+  const retry = document.getElementById("retry-food");
+  if (retry) retry.onclick = () => { void retryFood(); };
   Jiuwo.save(KEY, { ...saved, lat: center.lat, lng: center.lng, radius, label: center.label });
 }
 function colorScale(value, max) { const t = max ? value / max : 0; return `hsl(${120 - t * 120}, 55%, 45%)`; }
@@ -364,7 +394,14 @@ function fillDist() {
   document.getElementById("dist").innerHTML = `<option>全部</option>` + Object.keys(city.districts).sort().map((name) => `<option>${name}</option>`).join("");
 }
 async function boot() {
-  data = await (await fetch("/downloads/villages.json")).json();
+  try {
+    const response = await fetch("/downloads/villages.json");
+    if (!response.ok) throw new Error(String(response.status));
+    data = await response.json();
+  } catch (error) {
+    document.getElementById("stats").innerHTML = "<p>村里人口這次沒讀到。請檢查網路後重新整理。</p>";
+    return;
+  }
   document.getElementById("src").textContent = data.source + " 超商：OpenStreetMap 台灣便利商店名冊。餐飲：Overpass，失敗再查地名。地址：站內地名與 Nominatim。金門、連江沒有同版村里界。桃園升格後，舊界只對上部分區。";
   if (!data.cities[saved.city]) saved.city = "高雄市";
   fillCities();
@@ -386,6 +423,7 @@ document.getElementById("mode").onclick = () => {
 };
 async function runSearch() {
   const queryText = document.getElementById("q").value.trim();
+  if (!queryText) { alert("請先輸入地標或地址。"); return; }
   const known = (Jiuwo.places || []).find((place) => place[0] === queryText);
   const found = known ? { name: known[0], lat: known[1], lng: known[2] } : await Jiuwo.geocode(queryText);
   if (!found) { alert("找不到。可試高雄巨蛋、高雄車站、台北車站，或貼緯度,經度。"); return; }

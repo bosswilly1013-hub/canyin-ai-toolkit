@@ -139,7 +139,7 @@ export const tools: ToolInfo[] = [
     href: "/downloads/district.html",
     name: "商圈調查",
     problem: "輸入地標，看步行圈裡大概有多少人。",
-    answers: "人口用內政部村里資料。店家連不上時會改用示範點。",
+    answers: "人口用內政部村里資料。超商用台灣便利商店名冊，餐飲查不到可以再試一次。",
     category: "brand",
     keywords: ["商圈", "人口", "步行"],
   },

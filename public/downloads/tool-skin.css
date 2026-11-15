@@ -6,5 +6,6 @@ main, #body { width: 100%; max-width: none; min-height: calc(100vh - 64px); box-
 table { width: 100%; }
 header button, .tabs button.on, #go, #mode, .get { background: #C3F000; color: #1A1A16; border-radius: 10px; font-weight: 800; }
 button { border-radius: 10px; }
+@media print { header, nav, button { display: none !important; } body { background: #fff; } }
 section, aside, table { border-color: #e8e8e0; }
 .pin { background: #C3F000; color: #1A1A16; border-radius: 50%; text-align: center; line-height: 18px; font-weight: 800; }

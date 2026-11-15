@@ -98,7 +98,7 @@ function render() {
         <tr><td>減：固定成本</td><td>${Math.round(result.fixed).toLocaleString()}</td><td>${state.sales ? (result.fixed/state.sales*100).toFixed(1) : 0}%</td></tr>
         <tr><td>營業淨利</td><td>${Math.round(result.profit).toLocaleString()}</td><td>${state.sales ? (result.profit/state.sales*100).toFixed(1) : 0}%</td></tr>
       </table></section>`;
-  ["sales","days","ticket","want"].forEach((id) => { const node = document.getElementById(id); if (node) node.oninput = () => { state[id] = Number(node.value); paint(); Jiuwo.save(KEY, state); }; });
+  ["sales","days","ticket","want"].forEach((id) => { const node = document.getElementById(id); if (node) node.oninput = () => { const n = Number(node.value); if (node.value.trim() !== "" && !Number.isFinite(n)) return; state[id] = node.value.trim() === "" ? 0 : n; paint(); Jiuwo.save(KEY, state); }; });
   document.querySelectorAll("[data-n]").forEach((input) => input.onchange = () => { state.lines[input.dataset.n].name = input.value; Jiuwo.save(KEY, state); });
   document.querySelectorAll("[data-a]").forEach((input) => input.oninput = () => { state.lines[input.dataset.a].amount = Number(input.value); paint(); Jiuwo.save(KEY, state); });
   document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.lines.splice(Number(button.dataset.del), 1); render(); });
@@ -110,7 +110,8 @@ function field(key, label) { return `<label class="f">${label}<input id="${key}"
 function paint() {
   const result = compute();
   const width = Math.max(4, Math.min(100, state.sales ? result.breakSales / Math.max(state.sales, result.breakSales) * 100 : 0));
-  document.getElementById("out").innerHTML = `<div class="goal"><small>損益兩平營業額（每月）</small><b>${Math.round(result.breakSales).toLocaleString()} 元</b><span style="font-size:12px;color:rgba(255,255,255,.7)">平均每天 ${Math.round(result.day).toLocaleString()} 元，約 ${result.guests.toFixed(0)} 位客人</span></div>
+  const possible = result.contribution > 0 && Number.isFinite(result.breakSales);
+  document.getElementById("out").innerHTML = `<div class="goal"><small>損益兩平營業額（每月）</small><b>${possible ? Math.round(result.breakSales).toLocaleString() + " 元" : "算不出來"}</b><span style="font-size:12px;color:rgba(255,255,255,.7)">${possible ? "平均每天 " + Math.round(result.day).toLocaleString() + " 元，約 " + result.guests.toFixed(0) + " 位客人" : "變動成本已經高過或等於營業額，請先改成本或售價。"}</span></div>
     <section class="card"><h2 style="font-size:15px">計算結果</h2>
       <div class="stack" style="height:18px;margin:8px 0"><i style="width:${width}%;background:#3aaa7a"></i></div>
       <div class="rowline"><span>目前每月損益</span><b>${Math.round(result.profit).toLocaleString()} 元</b></div>

@@ -8,13 +8,16 @@
 <main>
 <h1>打烊檢查</h1>
 <p>勾過的項目存在這台裝置。</p>
+<p id="progress">還沒勾。打烊時逐項打勾。</p>
 <form id="list"></form>
-<button id="clear" type="button">清空示範資料</button>
+<button id="clear" type="button">全部取消勾選</button>
+<button id="print" type="button">列印</button>
 </main>
 <script>
 const KEY = "jiuwo.tool.close-check";
 const items = ["瓦斯關閉", "冰箱溫度已記", "地面拖乾", "生熟分開", "現金對完", "垃圾清出"];
-const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (error) { saved = {}; }
 const form = document.getElementById("list");
 items.forEach((name) => {
   const label = document.createElement("label");
@@ -26,10 +29,15 @@ items.forEach((name) => {
     const next = {};
     form.querySelectorAll("input").forEach((input) => { next[input.dataset.name] = input.checked; });
     localStorage.setItem(KEY, JSON.stringify(next));
+    const done = Object.values(next).filter(Boolean).length;
+    document.getElementById("progress").textContent = done ? "已勾 " + done + "／" + items.length : "還沒勾。打烊時逐項打勾。";
   };
   box.dataset.name = name;
   label.append(box, " " + name);
   form.append(label);
 });
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); form.querySelectorAll("input").forEach((input) => { input.checked = false; }); };
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); form.querySelectorAll("input").forEach((input) => { input.checked = false; }); document.getElementById("progress").textContent = "還沒勾。打烊時逐項打勾。"; };
+document.getElementById("print").onclick = () => window.print();
+const opened = items.filter((name) => saved[name]).length;
+if (opened) document.getElementById("progress").textContent = "已勾 " + opened + "／" + items.length;
 </script>

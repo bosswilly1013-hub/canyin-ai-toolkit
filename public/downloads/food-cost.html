@@ -12,7 +12,8 @@
 <label>售價 <input id="price" type="number"></label>
 <label>食材成本 <input id="cost" type="number"></label>
 <p id="out"></p>
-<button id="clear" type="button">清空示範資料</button>
+<button id="clear" type="button">清空數字</button>
+<button id="demo" type="button">看一個例子</button>
 </main>
 <script>
 const KEY = "jiuwo.tool.food-cost";
@@ -23,11 +24,18 @@ function write() {
   const data = {};
   ids.forEach((id) => { data[id] = document.getElementById(id).value; });
   localStorage.setItem(KEY, JSON.stringify(data));
-  const ratio = Number(data.price) > 0 ? Number(data.cost) / Number(data.price) : 0;
-  document.getElementById("out").textContent = data.name + " 食材比 " + Math.round(ratio * 1000) / 10 + "%。超過 35% 就先查份量或進價。";
+  const price = Number(data.price);
+  const cost = Number(data.cost);
+  const out = document.getElementById("out");
+  if (!data.name && !data.price && !data.cost) { out.textContent = "先寫菜名、售價和食材成本。"; return; }
+  if (!(price > 0) || !(cost >= 0) || !Number.isFinite(price) || !Number.isFinite(cost)) { out.textContent = "售價請填大於 0 的數字，成本請填 0 或正數。"; return; }
+  const ratio = cost / price;
+  const pct = Math.round(ratio * 1000) / 10;
+  out.textContent = (data.name || "這道菜") + " 食材比 " + pct + "%。" + (pct > 35 ? "超過 35%，先查份量或進價。" : "");
 }
 const saved = read();
 ids.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
-document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = ""; }); write(); };
+document.getElementById("demo").onclick = () => { ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
 write();
 </script>

@@ -40,4 +40,9 @@ table.sheet th { background: #f3f0e6; text-align: left; font-weight: 700; }
 table.sheet td, table.sheet th { border-bottom: 1px solid var(--line); padding: 6px 8px; }
 table.sheet tr:nth-child(even) td { background: #fbfaf6; }
 table.sheet input { width: 100%; min-width: 0; padding: 4px 6px; }
-@media (max-width: 900px) { .split, .grid3, .grid4 { grid-template-columns: 1fr; } .rail { position: static; } }
+@media (max-width: 900px) { .split, .grid3, .grid4 { grid-template-columns: 1fr; } .rail { position: static; } table.sheet { min-width: 640px; } }
+@media print {
+  .actions, .modes, .hero .kicker { display: none !important; }
+  body.tool, .shell { background: #fff; color: #000; }
+  .goal, .hero { break-inside: avoid; }
+}

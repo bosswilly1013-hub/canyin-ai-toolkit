@@ -43,6 +43,7 @@
 <script src="/vendor/xlsx.full.min.js"></script>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
+function esc(text) { return String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch])); }
 const KEY = "jiuwo.tool.route.v2";
 const DEMO = {
   warehouse: { name: "久沃中央廚房", address: "高雄車站", lat: 22.639, lng: 120.302 },
@@ -186,15 +187,18 @@ function render() {
     const wipe = panel.querySelector("#wipe");
     if (wipe) wipe.onclick = () => { order = []; render(); };
   } else if (tab === "shops") {
-    panel.innerHTML = `<table><tr><th>店名</th><th>區域</th><th>備註</th></tr>${state.shops.map((shop, index) => `<tr><td>${shop.name}</td><td>${shop.area}</td><td>${shop.note || ""} ${shop.lat ? "" : "缺・按我補"} <button type="button" data-edit="${index}">改</button> <button type="button" data-del="${index}">刪</button></td></tr>`).join("")}</table>
+    panel.innerHTML = `<table><tr><th>店名</th><th>區域</th><th>備註</th></tr>${state.shops.map((shop, index) => `<tr><td>${esc(shop.name)}</td><td>${esc(shop.area)}</td><td>${esc(shop.note || "")} ${shop.lat ? "" : "缺・按我補"} <button type="button" data-edit="${index}">改</button> <button type="button" data-del="${index}">刪</button></td></tr>`).join("")}</table>
       <p>店名 <input id="n"> 區域 <input id="a"> 地址或座標 <input id="addr"> 備註 <input id="note"></p>
       <button type="button" id="add">新增</button>
       <button type="button" id="tpl">下載 Excel 範本</button>
       <button type="button" id="exp">匯出</button>
       <label>匯入 <input id="imp" type="file" accept=".xlsx,.csv"></label>`;
     panel.querySelector("#add").onclick = async () => {
-      const found = await Jiuwo.geocode(panel.querySelector("#addr").value);
-      state.shops.push({ name: panel.querySelector("#n").value || "新店", area: panel.querySelector("#a").value || "未分區", address: panel.querySelector("#addr").value, lat: found ? found.lat : null, lng: found ? found.lng : null, note: panel.querySelector("#note").value, open: true });
+      const name = panel.querySelector("#n").value.trim();
+      const address = panel.querySelector("#addr").value.trim();
+      if (!name && !address) { alert("請先寫店名或地址。"); return; }
+      const found = await Jiuwo.geocode(address);
+      state.shops.push({ name: name || "新店", area: panel.querySelector("#a").value || "未分區", address, lat: found ? found.lat : null, lng: found ? found.lng : null, note: panel.querySelector("#note").value, open: true });
       Jiuwo.save(KEY, state); render();
     };
     panel.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => {
@@ -214,7 +218,12 @@ function render() {
     panel.querySelector("#tpl").onclick = () => Jiuwo.xlsx("店家範本.xlsx", [["店名","區域","地址","緯度","經度","備註"]]);
     panel.querySelector("#exp").onclick = () => Jiuwo.xlsx("店家.xlsx", [["店名","區域","地址","緯度","經度","備註"], ...state.shops.map((shop) => [shop.name, shop.area, shop.address, shop.lat, shop.lng, shop.note])]);
     panel.querySelector("#imp").onchange = async (event) => {
-      const rows = await Jiuwo.read(event.target.files[0]);
+      const file = event.target.files && event.target.files[0];
+      event.target.value = "";
+      if (!file) return;
+      let rows;
+      try { rows = await Jiuwo.read(file); } catch (error) { alert("這份表格讀不起來。請用範本的欄位。"); return; }
+      if (!rows || !rows.length) { alert("表格是空的。"); return; }
       const mode = confirm("確定＝取代現有店家，取消＝附加") ? "replace" : "append";
       const next = rows.slice(1).filter((row) => row[0]).map((row) => ({ name: row[0], area: row[1] || "未分區", address: row[2] || "", lat: Number(row[3]) || null, lng: Number(row[4]) || null, note: row[5] || "", open: true }));
       state.shops = mode === "replace" ? next : state.shops.concat(next);
@@ -237,7 +246,7 @@ function render() {
       <button type="button" id="backup">下載備份</button>
       <label>從備份還原 <input id="restore" type="file" accept=".json"></label>
       <button type="button" id="empty">全部清空</button>
-      <button type="button" id="demo">清空示範資料</button>`;
+      <button type="button" id="demo">還原範例店家</button>`;
     panel.querySelector("#wsave").onclick = async () => {
       const found = await Jiuwo.geocode(panel.querySelector("#waddr").value);
       state.warehouse.name = panel.querySelector("#wname").value || state.warehouse.name;
@@ -248,7 +257,20 @@ function render() {
     panel.querySelector("#dadd").onclick = () => { const name = panel.querySelector("#dnew").value.trim(); if (name) state.drivers.push(name); Jiuwo.save(KEY, state); render(); };
     panel.querySelectorAll("[data-dd]").forEach((button) => button.onclick = () => { state.drivers.splice(Number(button.dataset.dd), 1); Jiuwo.save(KEY, state); render(); });
     panel.querySelector("#backup").onclick = () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "路線備份.json"; link.click(); };
-    panel.querySelector("#restore").onchange = async (event) => { state = JSON.parse(await event.target.files[0].text()); Jiuwo.save(KEY, state); render(); };
+    panel.querySelector("#restore").onchange = async (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = "";
+      if (!file) return;
+      try {
+        const next = JSON.parse(await file.text());
+        if (!next || !Array.isArray(next.shops)) throw new Error("bad");
+        state = next;
+        Jiuwo.save(KEY, state);
+        render();
+      } catch (error) {
+        alert("這份備份讀不起來。請選先前下載的路線備份。");
+      }
+    };
     panel.querySelector("#empty").onclick = () => { if (!confirm("清掉全部店家和路線？")) return; state = { warehouse: state.warehouse, drivers: [], shops: [], saved: [] }; Jiuwo.save(KEY, state); render(); };
     panel.querySelector("#demo").onclick = () => { Jiuwo.clear(KEY); state = structuredClone(DEMO); picked = new Set(state.shops.map((shop) => shop.name)); render(); };
   }
@@ -261,7 +283,7 @@ function move(index, delta) {
   draw();
   render();
 }
-document.getElementById("tab-plan").onclick = () => { tab = "plan"; buildRoute(); };
+document.getElementById("tab-plan").onclick = () => { tab = "plan"; render(); };
 document.getElementById("tab-shops").onclick = () => { tab = "shops"; render(); };
 document.getElementById("tab-saved").onclick = () => { tab = "saved"; render(); };
 document.getElementById("tab-set").onclick = () => { tab = "set"; render(); };

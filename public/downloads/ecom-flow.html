@@ -22,7 +22,8 @@
   header.bar { display: flex; align-items: center; gap: 16px; padding: 14px 18px; flex-wrap: wrap; }
   header.bar b { margin-right: 12px; font-size: 1.15rem; }
   header.bar .gap { flex: 1; }
-  header.bar button { margin-left: 8px; padding: 8px 16px; }
+  header.bar button { margin-left: 0; padding: 8px 16px; }
+  @media print { header.bar, nav { display: none !important; } }
 </style>
 <nav id="nav"></nav>
 <div id="body"></div>
@@ -59,7 +60,7 @@ function render() {
     <section id="clock"><h2>一天的時刻表</h2><ol>${CLOCK.map((row) => `<li><b>${row[0]}</b> ${row[1]}</li>`).join("")}</ol><p>這是團購和冷凍出貨的順序。門市打烊清單在店務流程。</p></section>
   </div>`;
   document.querySelectorAll("[data-id]").forEach((box) => box.onchange = () => { done.checked[box.dataset.id] = box.checked; render(); });
-  document.querySelectorAll("[data-note]").forEach((box) => box.onchange = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
+  document.querySelectorAll("[data-note]").forEach((box) => box.oninput = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
 }
 document.getElementById("exp").onclick = () => Jiuwo.csv("電商流程.csv", [["段落","程度","勾了","備註","做法"], ...STEPS.map((step) => [step[1], step[2], done.checked[step[0]] ? "是" : "否", done.notes[step[0]] || "", step[3]])]);
 document.getElementById("print").onclick = () => window.print();
