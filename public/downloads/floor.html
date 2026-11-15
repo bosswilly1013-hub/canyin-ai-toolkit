@@ -75,7 +75,8 @@
 </div>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.floor.v4";
+const KEY = "jiuwo.tool.floor.v5";
+const hadSave = !!localStorage.getItem(KEY);
 const LIB = [
   ["冷藏","單門冰箱",60,60],["冷藏","雙門冰箱",90,70],["冷藏","四門冰箱",120,70],["冷藏","六門冰箱",180,75],["冷藏","工作台冰箱",150,70],["冷藏","沙拉櫃",120,70],["冷藏","冷藏展示櫃",120,60],["冷藏","冷凍櫃",150,70],["冷藏","製冰機",50,50],["冷藏","急凍櫃",80,70],
   ["熱廚","單口瓦斯爐",40,60],["熱廚","雙口炒台",90,75],["熱廚","三口炒台",150,80],["熱廚","平口爐",90,70],["熱廚","油炸機",40,60],["熱廚","雙槽油炸",80,60],["熱廚","蒸箱",70,70],["熱廚","烤箱",80,80],["熱廚","微波爐",50,40],["熱廚","煮飯機",40,40],["熱廚","湯爐",40,50],["熱廚","扒爐",90,70],
@@ -101,6 +102,7 @@ const DEMO = {
 };
 let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
 if (!state.poly) state = structuredClone(DEMO);
+if (!hadSave) { state.items = []; state.measures = []; state.selected = []; }
 let past = [], future = [], drag = null, measureStart = null;
 const scale = 0.55;
 function snap() { past.push(JSON.stringify(state)); future = []; if (past.length > 40) past.shift(); }
@@ -332,4 +334,5 @@ document.getElementById("go-wall").onclick = () => setTool("wall");
 document.getElementById("welcome-demo").onclick = () => { closeWelcome(); document.getElementById("demo").click(); };
 document.getElementById("welcome-blank").onclick = () => { closeWelcome(); document.getElementById("blank").click(); };
 draw();
+if (hadSave) closeWelcome();
 </script>

@@ -132,8 +132,14 @@ function pyramid(local, city) {
   return data.bands.map((name, i) => `<div class="pyr"><i style="width:${local[i]/lt*100}%"></i><span>${name}</span><i style="width:${city[i]/ct*100}%;background:#c4a15a"></i></div>`).join("") + "<p>左：圈內。右：全市戶政年齡。</p>";
 }
 let placeNote = "";
+function samplePlaces() {
+  return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001 }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015 }];
+}
 async function loadPlaces() {
-  const fallback = [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001 }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015 }];
+  const fallback = samplePlaces();
+  places = fallback;
+  placeNote = "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。";
+  if (data) drawWalk();
   const query = `[out:json][timeout:12];(node["amenity"~"restaurant|cafe|fast_food|convenience"](around:${radius},${center.lat},${center.lng}););out 30;`;
   const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter"];
   for (const url of mirrors) {
@@ -142,11 +148,12 @@ async function loadPlaces() {
       if (!response.ok) continue;
       const json = await response.json();
       const found = (json.elements || []).filter((item) => item.tags && item.tags.name).map((item) => ({ name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat: item.lat, lng: item.lon }));
-      if (found.length) { places = found; placeNote = ""; return; }
+      if (found.length) { places = found; placeNote = ""; if (data) drawWalk(); return; }
     } catch (error) { /* try the next mirror */ }
   }
-  places = fallback;
-  placeNote = "地圖店家暫時連不上（伺服器回應失敗）。下面先用兩家示範店，人口仍用戶政資料。";
+  places = samplePlaces();
+  placeNote = "附近店家暫時查不到。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
+  if (data) drawWalk();
 }
 function drawWalk() {
   layer.clearLayers();

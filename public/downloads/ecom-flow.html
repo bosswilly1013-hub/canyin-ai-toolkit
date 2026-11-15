@@ -17,7 +17,13 @@
   li { margin: 8px 0; }
   @media (max-width: 800px) { #body { grid-template-columns: 1fr; } }
 </style>
-<header><b>久沃電商流程總覽</b><button type="button" id="exp">匯出</button><button type="button" id="print">列印</button><span id="count"></span></header>
+<header class="bar"><b>久沃電商流程總覽</b><span class="gap"></span><button type="button" id="exp">匯出</button><button type="button" id="print">列印</button><span id="count"></span></header>
+<style>
+  header.bar { display: flex; align-items: center; gap: 16px; padding: 14px 18px; flex-wrap: wrap; }
+  header.bar b { margin-right: 12px; font-size: 1.15rem; }
+  header.bar .gap { flex: 1; }
+  header.bar button { margin-left: 8px; padding: 8px 16px; }
+</style>
 <nav id="nav"></nav>
 <div id="body"></div>
 <script src="/vendor/jiuwo-kit.js"></script>

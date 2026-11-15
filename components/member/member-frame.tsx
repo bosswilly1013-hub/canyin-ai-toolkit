@@ -331,10 +331,10 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
               {showTool ? <iframe title={article.title} src={article.tool.startsWith("/") ? article.tool : `/systems/${article.tool}/`} /> : null}
             </div>
           ) : null}
-          <label className="no-print">留給自己的筆記
+          <label className="article-foot no-print">留給自己的筆記
             <textarea value={note} onChange={(event) => { setNote(event.target.value); localStorage.setItem(`jiuwo.note.${article.slug}`, event.target.value); }} />
           </label>
-          <p className="no-print"><a href="https://line.me/R/" target="_blank" rel="noreferrer">問題回報，用 LINE 傳給店裡</a></p>
+          <p className="article-foot no-print"><a href="https://line.me/R/" target="_blank" rel="noreferrer">問題回報，用 LINE 傳給店裡</a></p>
           <PathFooter article={article} articles={articles} />
         </article>
       ) : null}

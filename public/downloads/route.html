@@ -9,9 +9,10 @@
   header { display: flex; gap: 8px; align-items: center; padding: 10px 14px; background: #14221c; color: #f4efe6; }
   header button, .tabs button, .bar button { border: 0; border-radius: 999px; padding: 6px 10px; }
   .tabs button.on { background: #e15a2b; color: #fff; }
-  main { display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 52px); }
-  aside { padding: 12px; overflow: auto; }
-  #map { min-height: 70vh; }
+  main { display: grid; grid-template-columns: 380px minmax(0, 1fr); height: calc(100vh - 108px); min-height: 560px; padding: 0 !important; }
+  aside { padding: 12px; overflow: auto; background: #f6f3ec; }
+  #map { height: 100%; min-height: 560px; width: 100%; }
+  .leaflet-container { height: 100%; width: 100%; background: #d9e2d4; font: inherit; }
   .stepcard { background: #fff; border: 1px solid #e8e8e0; border-radius: 16px; padding: 12px; margin-bottom: 10px; }
   .days { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
   .day { border: 1px solid #e8e8e0; border-radius: 999px; padding: 4px 10px; background: #fff; }
@@ -88,39 +89,48 @@ function nearest(points, ret) {
   if (ret) path.push({ ...home, name: "回到" + home.name });
   return path;
 }
+function usable(point) { return point && Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)); }
+function pinIcon(label) { return L.divIcon({ className: "pin", html: String(label), iconSize: [28, 28], iconAnchor: [14, 14] }); }
 async function buildRoute() {
   const home = { ...state.warehouse, home: true };
-  const stops = state.shops.filter((shop) => picked.has(shop.name) && shop.lat && shop.open !== false);
+  const stops = state.shops.filter((shop) => picked.has(shop.name) && usable(shop) && shop.open !== false);
+  if (!usable(home) || !stops.length) { alert("先勾至少一家有座標的店。"); return; }
   const seed = [home, ...stops];
+  order = nearest(seed, back);
+  const dist = order.slice(1).reduce((sum, point, index) => sum + km(order[index], point), 0);
+  order.meta = { km: dist.toFixed(1), min: Math.round(dist / 25 * 60), line: null, note: "先用直線排出順序。" };
+  draw();
+  render();
   try {
     const coords = seed.map((point) => point.lng + "," + point.lat).join(";");
-    const url = "https://router.project-osrm.org/trip/v1/driving/" + coords + "?source=first&roundtrip=" + back + "&geometries=geojson";
-    const response = await fetch(url);
+    const url = "https://router.project-osrm.org/trip/v1/driving/" + coords + "?source=first&roundtrip=" + (back ? "true" : "false") + "&geometries=geojson";
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!response.ok) throw new Error("osrm");
     const data = await response.json();
-    const trip = data.trips[0];
+    const trip = data.trips && data.trips[0];
+    if (!trip) throw new Error("osrm");
     const seq = data.waypoints.map((point, index) => ({ index, order: point.waypoint_index })).sort((a, b) => a.order - b.order);
     order = seq.map((item) => seed[item.index]);
     if (back) order.push({ ...home, name: "回到" + home.name });
-    order.meta = { km: (trip.distance / 1000).toFixed(1), min: Math.round(trip.duration / 60), line: trip.geometry };
-  } catch (error) {
-    order = nearest(seed, back);
-    const dist = order.slice(1).reduce((sum, point, index) => sum + km(order[index], point), 0);
-    order.meta = { km: dist.toFixed(1), min: Math.round(dist / 25 * 60), line: null };
-  }
-  draw();
-  render();
+    order.meta = { km: (trip.distance / 1000).toFixed(1), min: Math.round(trip.duration / 60), line: trip.geometry, note: "" };
+    draw();
+    render();
+  } catch (error) { /* 直線順序已經畫上 */ }
 }
 function draw() {
   layer.clearLayers();
-  if (!order.length) return;
-  const latlngs = order.map((point) => [point.lat, point.lng]);
-  if (order.meta && order.meta.line) L.geoJSON(order.meta.line, { style: { color: "#1d3c34", weight: 5 } }).addTo(layer);
-  else L.polyline(latlngs, { color: "#e15a2b" }).addTo(layer);
-  order.forEach((point, index) => {
-    L.marker([point.lat, point.lng], { icon: L.divIcon({ className: "pin", html: String(index + 1), iconSize: [22, 22] }) }).addTo(layer).bindPopup(point.name);
+  map.invalidateSize();
+  const points = order.length ? order.filter(usable) : [state.warehouse, ...state.shops].filter(usable);
+  if (!points.length) return;
+  const latlngs = points.map((point) => [Number(point.lat), Number(point.lng)]);
+  if (order.meta && order.meta.line) {
+    try { L.geoJSON(order.meta.line, { style: { color: "#1d3c34", weight: 5 } }).addTo(layer); }
+    catch (error) { L.polyline(latlngs, { color: "#e15a2b", weight: 4 }).addTo(layer); }
+  } else if (order.length) L.polyline(latlngs, { color: "#e15a2b", weight: 4 }).addTo(layer);
+  points.forEach((point, index) => {
+    L.marker([Number(point.lat), Number(point.lng)], { icon: pinIcon(order.length ? index + 1 : "●") }).addTo(layer).bindPopup(point.name || "");
   });
-  map.fitBounds(latlngs, { padding: [20, 20] });
+  map.fitBounds(latlngs, { padding: [28, 28] });
 }
 function lineText() {
   return [day + "｜" + driver, ...order.map((point, index) => (index + 1) + ". " + point.name + (point.note ? "（" + point.note + "）" : ""))].join("\n");
@@ -152,7 +162,7 @@ function render() {
       <button type="button" id="none">清空勾選</button>
       <div>${shown.map((shop) => `<label class="stop"><input type="checkbox" data-shop="${shop.name}" ${picked.has(shop.name)?"checked":""}> ${shop.name} · ${shop.area} ${shop.note ? "· " + shop.note : ""} ${shop.lat ? "" : "缺・按我補"}</label>`).join("")}</div>
       <p class="bar"><button type="button" id="go">排路線</button></p></div>
-      ${order.length ? `<p><b>${order.length} 站</b> · ${order.meta.km} 公里 · 約 ${order.meta.min} 分</p>` + order.map((point, index) => `<div class="stop">${index+1}. ${point.name} <button type="button" data-up="${index}">▲</button><button type="button" data-down="${index}">▼</button></div>`).join("") + `<p>${navLinks()}</p><button type="button" id="copy">複製給 LINE</button> <button type="button" id="keep">存成固定路線</button> <button type="button" id="wipe">清掉重排</button>` : ""}`;
+      ${order.length ? `<div class="stepcard"><b>順序 ${order.length} 站</b> · ${order.meta.km} 公里 · 約 ${order.meta.min} 分<p>${order.meta.note || ""}</p>` + order.map((point, index) => `<div class="stop">${index+1}. ${point.name} <button type="button" data-up="${index}">▲</button><button type="button" data-down="${index}">▼</button></div>`).join("") + `<p>${navLinks()}</p><button type="button" id="copy">複製給 LINE</button> <button type="button" id="keep">存成固定路線</button> <button type="button" id="wipe">清掉重排</button></div>` : ""}`;
     panel.querySelectorAll("[data-shop]").forEach((box) => box.onchange = () => { box.checked ? picked.add(box.dataset.shop) : picked.delete(box.dataset.shop); });
     panel.querySelectorAll("[data-day]").forEach((button) => button.onclick = () => { day = button.dataset.day; render(); });
     panel.querySelector("#driver").onchange = (event) => { driver = event.target.value; };
@@ -251,7 +261,7 @@ function move(index, delta) {
   draw();
   render();
 }
-document.getElementById("tab-plan").onclick = () => { tab = "plan"; render(); };
+document.getElementById("tab-plan").onclick = () => { tab = "plan"; buildRoute(); };
 document.getElementById("tab-shops").onclick = () => { tab = "shops"; render(); };
 document.getElementById("tab-saved").onclick = () => { tab = "saved"; render(); };
 document.getElementById("tab-set").onclick = () => { tab = "set"; render(); };
@@ -261,5 +271,12 @@ map.on("click", (event) => {
   state.warehouse.lng = event.latlng.lng;
   Jiuwo.save(KEY, state);
 });
+state.shops.forEach((shop) => {
+  if (usable(shop)) return;
+  const demo = DEMO.shops.find((item) => item.name === shop.name);
+  if (demo) { shop.lat = demo.lat; shop.lng = demo.lng; }
+});
+if (!usable(state.warehouse)) { state.warehouse.lat = DEMO.warehouse.lat; state.warehouse.lng = DEMO.warehouse.lng; }
 render();
+setTimeout(() => { map.invalidateSize(); draw(); }, 250);
 </script>
