@@ -131,58 +131,119 @@ function pyramid(local, city) {
   const lt = local.reduce((a,b)=>a+b,0) || 1, ct = city.reduce((a,b)=>a+b,0) || 1;
   return data.bands.map((name, i) => `<div class="pyr"><i style="width:${local[i]/lt*100}%"></i><span>${name}</span><i style="width:${city[i]/ct*100}%;background:#c4a15a"></i></div>`).join("") + "<p>左：圈內。右：全市戶政年齡。</p>";
 }
-let placeNote = "";
+let placeNote = "正在向地圖查附近店家。";
+let placeMode = "loading";
 let placeTicket = 0;
 function samplePlaces() {
-  return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001 }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015 }];
+  return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001, sample: true }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015, sample: true }];
 }
-function ensureShopEstimate() {
-  const samples = samplePlaces();
-  if (!places.length) {
-    places = samples;
-    placeNote = "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
-    return;
+function shopQuery() {
+  const cap = Math.min(500, Math.max(200, Number(radius) || 300));
+  const lat = Number(center.lat).toFixed(6);
+  const lng = Number(center.lng).toFixed(6);
+  return `[out:json][timeout:18];(node["amenity"~"^(restaurant|cafe|fast_food|convenience)$"](around:${cap},${lat},${lng});way["amenity"~"^(restaurant|cafe|fast_food|convenience)$"](around:${cap},${lat},${lng}););out center 25;`;
+}
+function readShops(json) {
+  const elements = json && Array.isArray(json.elements) ? json.elements : null;
+  if (!elements) return null;
+  return elements.filter((item) => item && item.tags && item.tags.name).map((item) => {
+    const lat = item.lat || (item.center && item.center.lat);
+    const lng = item.lon || (item.center && item.center.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat, lng };
+  }).filter(Boolean);
+}
+async function askMirror(url, query) {
+  const encoded = "data=" + encodeURIComponent(query);
+  let response = await fetch(url + "?" + encoded, { signal: AbortSignal.timeout(12000) });
+  if (response.status === 405 || response.status === 406) {
+    response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: encoded, signal: AbortSignal.timeout(12000) });
   }
-  if (!places.some((place) => place.kind === "超商")) {
-    places = places.concat(samples.filter((place) => place.kind === "超商"));
-    if (!String(placeNote).includes("示範")) placeNote = (placeNote ? placeNote + " " : "") + "這圈沒有超商，已加一家示範超商來估。";
+  if (response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504) {
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    response = await fetch(url + "?" + encoded, { signal: AbortSignal.timeout(12000) });
   }
+  if (!response.ok) throw new Error(String(response.status));
+  return readShops(await response.json());
 }
 async function loadPlaces() {
   const ticket = ++placeTicket;
-  const fallback = samplePlaces();
-  const show = (list, note) => {
+  const show = (list, note, mode) => {
     if (ticket !== placeTicket) return;
-    places = list.length ? list : fallback;
-    placeNote = list.length ? note : "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
-    if (!list.length) places = fallback;
+    places = list;
+    placeNote = note;
+    placeMode = mode;
     if (data && saved.mode !== "admin") drawWalk();
   };
-  show(fallback, "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。");
-  const query = `[out:json][timeout:8];(node["amenity"~"restaurant|cafe|fast_food|convenience"](around:${radius},${center.lat},${center.lng}););out 20;`;
-  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter"];
-  let named = [];
+  show([], "正在向地圖查附近店家。", "loading");
+  const query = shopQuery();
+  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
   for (const url of mirrors) {
     if (ticket !== placeTicket) return;
     try {
-      const response = await fetch(url, { method: "POST", body: query, headers: { Accept: "application/json" }, signal: AbortSignal.timeout(5000) });
+      const found = await askMirror(url, query);
       if (ticket !== placeTicket) return;
-      if (!response.ok) continue;
-      let json = null;
-      try { json = await response.json(); } catch (error) { continue; }
-      const elements = json && Array.isArray(json.elements) ? json.elements : [];
-      const found = elements.filter((item) => item && item.tags && item.tags.name).map((item) => ({ name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat: item.lat, lng: item.lon }));
-      if (!found.length) continue;
-      named = found;
-      break;
-    } catch (error) { /* empty body, 406, timeout: try the next mirror */ }
+      if (found && found.length) {
+        show(found, "", "live");
+        return;
+      }
+    } catch (error) { /* busy, 406, or timeout: try the next mirror */ }
   }
   if (ticket !== placeTicket) return;
-  if (named.length) show(named, "");
-  else show([], "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。");
+  try {
+    const named = await shopsFromNominatim();
+    if (ticket !== placeTicket) return;
+    if (named.length) {
+      show(named, "", "live");
+      return;
+    }
+  } catch (error) { /* directory search failed too */ }
+  if (ticket !== placeTicket) return;
+  show(samplePlaces(), "附近店家這次沒有連上。下面兩家是示範，只用於估算。人口仍是戶政資料。", "sample");
+}
+async function shopsFromNominatim() {
+  const dLat = 500 / 111000;
+  const dLng = 500 / (111000 * Math.cos(Number(center.lat) * Math.PI / 180));
+  const viewbox = [center.lng - dLng, Number(center.lat) + dLat, center.lng + dLng, Number(center.lat) - dLat].join(",");
+  const jobs = [["convenience", "超商"], ["restaurant", "餐飲"], ["cafe", "餐飲"], ["fast_food", "餐飲"]];
+  const found = [];
+  const seen = new Set();
+  for (const [amenity, kind] of jobs) {
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&countrycodes=tw&bounded=1&viewbox=" + viewbox + "&amenity=" + amenity;
+    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+    if (!response.ok) continue;
+    const rows = await response.json();
+    if (!Array.isArray(rows)) continue;
+    for (const item of rows) {
+      if (item.category && item.category !== "amenity" && item.category !== "shop") continue;
+      const lat = Number(item.lat);
+      const lng = Number(item.lon);
+      const name = String(item.name || "").trim();
+      if (!name || seen.has(name) || !Number.isFinite(lat) || meters(center, { lat, lng }) > 550) continue;
+      seen.add(name);
+      found.push({ name, kind, lat, lng });
+    }
+  }
+  if (!found.some((place) => place.kind === "超商")) {
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&countrycodes=tw&bounded=1&viewbox=" + viewbox + "&q=" + encodeURIComponent("7-ELEVEN");
+    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+    if (response.ok) {
+      const rows = await response.json();
+      if (Array.isArray(rows)) {
+        for (const item of rows) {
+          const lat = Number(item.lat);
+          const lng = Number(item.lon);
+          const name = String(item.name || "7-ELEVEN").trim();
+          if (!Number.isFinite(lat) || seen.has(name) || meters(center, { lat, lng }) > 550) continue;
+          seen.add(name);
+          found.push({ name, kind: "超商", lat, lng });
+        }
+      }
+    }
+  }
+  return found;
 }
 function drawWalk() {
-  ensureShopEstimate();
   layer.clearLayers();
   circle.setLatLng([center.lat, center.lng]);
   circle.setRadius(radius);
@@ -200,7 +261,7 @@ function drawWalk() {
     <p>估算人口 <b>${Math.round(stat.people).toLocaleString()}</b></p>
     <p>戶數 ${Math.round(stat.homes).toLocaleString()}</p>
     <p>密度 ${area ? Math.round(stat.people / area).toLocaleString() : "—"} 人／平方公里</p>
-    <p>每家超商約服務 ${shops ? Math.round(stat.people / shops).toLocaleString() : "—"} 人</p>
+    <p>${placeMode === "loading" ? "附近店家查詢中。" : shops ? "每家超商約服務 " + Math.round(stat.people / shops).toLocaleString() + " 人" : "這圈名單裡沒有超商，下面是餐飲。"}</p>
     <h3>年齡</h3>${pyramid(stat.age, stat.cityAge)}
     <h3>附近店家 ${places.length}</h3>${placeNote ? `<p>${placeNote}</p>` : ""}${places.slice(0, 8).map((place) => `<p>${place.kind} ${place.name}</p>`).join("")}
     <p>比較點 ${(saved.compare||[]).length} 個</p>`;
@@ -242,8 +303,8 @@ async function boot() {
   document.getElementById("metric").onchange = (event) => { saved.metric = event.target.value; if (saved.mode === "admin") drawAdmin(); };
   document.getElementById("op").onchange = () => { if (saved.mode === "admin") drawAdmin(); };
   document.getElementById("limit").onchange = () => { if (saved.mode === "admin") drawAdmin(); };
-  places = samplePlaces();
-  placeNote = "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。";
+  placeMode = "loading";
+  placeNote = "正在向地圖查附近店家。";
   if (saved.mode === "admin") drawAdmin(); else drawWalk();
   loadPlaces();
   setTimeout(() => map.invalidateSize(), 200);
