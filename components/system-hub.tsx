@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HomeSearch } from "@/components/home-search";
 import { apps } from "@/lib/apps";
+import { tools } from "@/lib/catalog";
 
 export function SystemHub() {
   return (
@@ -24,11 +25,17 @@ export function SystemHub() {
           </li>
         ))}
       </ul>
-      <p className="mt-10 text-sm">
-        <Link href="/tools" className="text-primary underline-offset-4 hover:underline">
-          小工具：兩平、外送、毛利、走道
-        </Link>
-      </p>
+      <h2 className="mt-10 text-2xl font-semibold">小工具與流程</h2>
+      <ul className="mt-4 grid gap-3 md:grid-cols-2">
+        {tools.filter((tool) => tool.href.startsWith("/tools") || tool.href.startsWith("/downloads")).map((tool) => (
+          <li key={tool.slug}>
+            <Link href={tool.href} className="block h-full rounded-2xl bg-card p-4 ring-1 ring-foreground/10 hover:ring-primary/40">
+              <h3 className="text-lg font-semibold">{tool.name}</h3>
+              <p className="mt-1 text-sm leading-6">{tool.problem}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

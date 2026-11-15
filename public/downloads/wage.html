@@ -1,8 +1,11 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
+<link rel="stylesheet" href="/downloads/tool-skin.css">
 <title>時薪試算</title>
-<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<style>label{display:block;margin:12px 0;font-size:1.05rem}input{width:min(100%,320px);height:40px}</style>
+<header><b>這週人力大概多少</b></header>
+<main>
 <h1>這週人力大概多少</h1>
 <p>時薪乘時數。不是薪資條。存在這台裝置。</p>
 <label>姓名 <input id="name"></label>
@@ -10,6 +13,7 @@
 <label>這週時數 <input id="hours" type="number"></label>
 <p id="out"></p>
 <button id="clear" type="button">清空示範資料</button>
+</main>
 <script>
 const KEY = "jiuwo.tool.wage";
 const demo = { name: "早班外場", wage: 196, hours: 32 };

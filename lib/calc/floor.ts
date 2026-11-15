@@ -124,8 +124,8 @@ export function exampleFloor(): FloorState {
     items: [
       { id: "kitchen", kind: "kitchen", name: "廚房", x: 0, y: 0, w: 5, h: 2.2 },
       { id: "counter", kind: "counter", name: "櫃檯", x: 0, y: 2.2, w: 5, h: 0.6 },
-      { id: "t1", kind: "table4", name: "四人桌 A", x: 0, y: 3.7, w: 1.6, h: 1.6 },
-      { id: "t2", kind: "table4", name: "四人桌 B", x: 3.4, y: 3.7, w: 1.6, h: 1.6 },
+      { id: "t1", kind: "table4", name: "四人桌 A", x: 0, y: 4.2, w: 1.5, h: 1.5 },
+      { id: "t2", kind: "table4", name: "四人桌 B", x: 3.5, y: 4.2, w: 1.5, h: 1.5 },
       { id: "door", kind: "door", name: "入口", x: 2.05, y: 7.6, w: 0.9, h: 0.4 },
     ],
   };

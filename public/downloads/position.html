@@ -6,8 +6,8 @@
 <style>
   body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
   header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-  main { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; padding: 12px; }
-  svg { width: 100%; background: #fffdf8; border-radius: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .7fr); gap: 16px; padding: 16px; min-height: calc(100vh - 64px); align-items: start; }
+  svg { width: 100%; height: min(78vh, 920px); background: #fffdf8; border-radius: 12px; }
   @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
 </style>
 <header>

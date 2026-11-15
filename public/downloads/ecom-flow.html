@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<link rel="stylesheet" href="/downloads/tool-skin.css">
+<title>電商流程總覽</title>
+<style>
+  nav { position: sticky; top: 0; z-index: 2; background: #fafaf7; display: flex; gap: 8px; overflow: auto; padding: 10px 16px; border-bottom: 1px solid #e8e8e0; }
+  nav a { white-space: nowrap; text-decoration: none; color: #1A1A16; border: 1px solid #e8e8e0; border-radius: 999px; padding: 6px 10px; background: #fff; }
+  #body { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; align-content: start; }
+  section { background: #fff; border: 1px solid #e8e8e0; border-radius: 16px; padding: 16px; }
+  .tag { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; background: #C3F000; font-weight: 800; }
+  .levels { display: flex; gap: 8px; flex-wrap: wrap; }
+  .levels span { background: #fff; border: 1px solid #e8e8e0; border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+  label { display: flex; gap: 8px; align-items: center; font-size: 1.15rem; font-weight: 800; }
+  textarea { width: 100%; min-height: 64px; margin-top: 8px; }
+  ol { margin: 0; padding-left: 1.2rem; }
+  li { margin: 8px 0; }
+  @media (max-width: 800px) { #body { grid-template-columns: 1fr; } }
+</style>
+<header><b>久沃電商流程總覽</b><button type="button" id="exp">匯出</button><button type="button" id="print">列印</button><span id="count"></span></header>
+<nav id="nav"></nav>
+<div id="body"></div>
+<script src="/vendor/jiuwo-kit.js"></script>
+<script>
+const KEY = "jiuwo.tool.ecom-flow.v1";
+const STEPS = [
+  ["content", "內容產線", "人手", "一週拍三則湯或一道菜。價錢寫在文字，不寫進圖。"],
+  ["social", "引流・社群", "半自動", "當天還賣的菜才發。賣完就改文案。私訊先問人數和時段。"],
+  ["ads", "引流・廣告", "人手", "一週只測一件事。三天沒有人訂就停。落地頁只留一個按鈕。"],
+  ["visit", "進站", "半自動", "商品頁第一行寫幾人份、保存天數和出貨日。"],
+  ["consult", "諮詢轉換", "人手", "私訊只回三件事：幾人份、哪天出貨、怎麼付款。不在聊天裡改價。"],
+  ["pay", "結帳與棄單", "全自動", "運費用平均訂單算。門檻太低會讓運費吃掉毛利。放到結帳沒付的，隔天只提醒一次。"],
+  ["ship", "出貨", "人手", "冷凍先秤重量。沒有貨就先下架，不寫很快補。"],
+  ["data", "數據", "半自動", "每團記出貨日、幾筆、退貨。退貨只收破損和溫度，當天說。"],
+  ["crm", "回購", "人手", "九十天沒買的分開。一個月只提醒一次，不跟折扣同一天。"],
+  ["b2b", "B 端", "先不要自動", "公司團購先問人數、日期和發票。沒有對過的地址不排進當日路線。"]
+];
+const CLOCK = [
+  ["06:00", "對冷凍庫和昨天沒付完的單"],
+  ["10:00", "拍今天要出的湯，寫幾人份"],
+  ["14:00", "回私訊和評論，不在聊天裡改價"],
+  ["16:00", "包貨、秤重、寫出貨日"],
+  ["21:00", "看今天幾筆、有沒有棄單或退貨"]
+];
+let done = Jiuwo.load(KEY, { checked: {}, notes: {} });
+function render() {
+  Jiuwo.save(KEY, done);
+  document.getElementById("nav").innerHTML = STEPS.map((step) => `<a href="#${step[0]}">${step[1].split("・")[0]}</a>`).join("") + `<a href="#clock">一天</a>`;
+  document.getElementById("count").textContent = "已勾 " + Object.values(done.checked).filter(Boolean).length + "／" + STEPS.length;
+  const cards = STEPS.map((step) => `<section id="${step[0]}"><span class="tag">${step[2]}</span><h2><label><input data-id="${step[0]}" type="checkbox" ${done.checked[step[0]] ? "checked" : ""}> ${step[1]}</label></h2><p>${step[3]}</p><textarea data-note="${step[0]}">${done.notes[step[0]] || ""}</textarea></section>`).join("");
+  document.getElementById("body").innerHTML = `<div>${cards}</div><div>
+    <section><h2>四種做法</h2><div class="levels"><span>人手：你自己做</span><span>半自動：表先算，你確認</span><span>全自動：只有結帳和運費</span><span>先不要自動：賠錢、改價、新地址</span></div></section>
+    <section id="clock"><h2>一天的時刻表</h2><ol>${CLOCK.map((row) => `<li><b>${row[0]}</b> ${row[1]}</li>`).join("")}</ol><p>這是團購和冷凍出貨的順序。門市打烊清單在店務流程。</p></section>
+  </div>`;
+  document.querySelectorAll("[data-id]").forEach((box) => box.onchange = () => { done.checked[box.dataset.id] = box.checked; render(); });
+  document.querySelectorAll("[data-note]").forEach((box) => box.onchange = () => { done.notes[box.dataset.note] = box.value; Jiuwo.save(KEY, done); });
+}
+document.getElementById("exp").onclick = () => Jiuwo.csv("電商流程.csv", [["段落","程度","勾了","備註","做法"], ...STEPS.map((step) => [step[1], step[2], done.checked[step[0]] ? "是" : "否", done.notes[step[0]] || "", step[3]])]);
+document.getElementById("print").onclick = () => window.print();
+render();
+</script>

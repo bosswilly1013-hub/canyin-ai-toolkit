@@ -1,4 +1,4 @@
-.member { --ink: #1A1A16; --paper: #fafaf7; --card: #fff; --line: #e8e8e0; --muted: #5a5a52; --accent: #C3F000; --pine: #6f9000; --green: #C3F000; --dark: #1A1A16; color: var(--ink); background: var(--paper); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif; }
+.member { --ink: #1A1A16; --paper: #fafaf7; --card: #fff; --line: #e8e8e0; --muted: #5a5a52; --accent: #C3F000; --pine: #6f9000; --green: #C3F000; --dark: #1A1A16; color: var(--ink); background: var(--paper); min-height: 100vh; max-width: 100%; overflow-x: clip; font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", sans-serif; }
 .member[data-theme="dark"] { --ink: #f4efe6; --paper: #121815; --card: #1c2420; --line: #2e3833; --muted: #c8bfb2; --accent: #ffb089; --pine: #8fbfa8; }
 .member * { box-sizing: border-box; }
 .gate { position: fixed; inset: 0; z-index: 80; background: #101614; display: grid; place-items: center; padding: 24px; }
@@ -85,7 +85,8 @@
 .qpromo .gk { color: #FFAA00; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
 .qpromo .gt { color: #C3F000; font-weight: 800; }
 .qpromo .gs { align-self: flex-start; background: #C3F000; color: #1A1A16; border-radius: 999px; padding: 4px 12px; font-weight: 800; font-size: .8rem; }
-.layout { max-width: 1360px; margin: 0 auto; padding: 26px 24px 70px; display: grid; grid-template-columns: 270px 1fr; gap: 28px; }
+.layout { max-width: min(1360px, 100%); margin: 0 auto; padding: 26px 24px 70px; display: grid; grid-template-columns: minmax(0, 270px) minmax(0, 1fr); gap: 28px; }
+.layout > * { min-width: 0; }
 .toc { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 14px; }
 .side-card { background: #fff; border: 1px solid #e8e8e0; border-radius: 18px; padding: 14px 10px; }
 .side-card h4 { padding: 0 8px 8px; }
@@ -154,8 +155,13 @@
 .path-row .tt small { display: block; color: #5a5a52; font-weight: 400; }
 .path-row .ok { color: #5f7a00; font-size: .78rem; }
 .dlbox { background: #fff; border: 1px solid #e8e8e0; border-radius: 14px; }
-.dlr { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-top: 1px solid #e8e8e0; }
-.dlr .info { flex: 1; } .dlr .info span, .dlr .info a { display: block; color: #5a5a52; font-size: .82rem; }
+.dlbox { max-width: 100%; overflow: hidden; }
+.dlr { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-top: 1px solid #e8e8e0; max-width: 100%; }
+.dlr .info { flex: 1 1 220px; min-width: 0; } .dlr .info b, .dlr .info span, .dlr .info a { display: block; overflow-wrap: anywhere; color: #5a5a52; font-size: .82rem; }
+.dlr .info b { color: inherit; font-size: .93rem; }
+.dlr .get { flex: none; margin-left: auto; }
+.cats, .layout, .main, .grid { min-width: 0; max-width: 100%; }
+.cats { overflow-x: auto; }
 .get { background: #C3F000; color: #1A1A16; border-radius: 8px; padding: 8px 14px; font-weight: 800; text-decoration: none; }
 .get::before { content: "↓ "; }
 .cl-it .ico { width: 18px; height: 18px; border-radius: 6px; display: inline-block; flex: none; }

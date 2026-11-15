@@ -31,7 +31,7 @@ const colors: Record<FloorKind, string> = {
 const font = '"PingFang TC","Noto Sans CJK TC","Microsoft JhengHei","WenQuanYi Micro Hei",sans-serif';
 
 export function FloorTool() {
-  const { value, setValue, reset, fromStorage } = usePersisted("lazykit.v1.floor", exampleFloor());
+  const { value, setValue, reset, fromStorage } = usePersisted("jiuwo.floor.v2", exampleFloor());
   const boardRef = useRef<HTMLDivElement>(null);
   const [pxPerM, setPxPerM] = useState(48);
   const report = checkAisles(value);

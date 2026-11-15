@@ -1,8 +1,11 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
+<link rel="stylesheet" href="/downloads/tool-skin.css">
 <title>食材比</title>
-<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<style>label{display:block;margin:12px 0;font-size:1.05rem}input{width:min(100%,320px);height:40px}</style>
+<header><b>一道菜的食材比</b></header>
+<main>
 <h1>一道菜的食材比</h1>
 <p>成本除以售價。存在這台裝置。</p>
 <label>菜名 <input id="name"></label>
@@ -10,6 +13,7 @@
 <label>食材成本 <input id="cost" type="number"></label>
 <p id="out"></p>
 <button id="clear" type="button">清空示範資料</button>
+</main>
 <script>
 const KEY = "jiuwo.tool.food-cost";
 const demo = { name: "紅燒牛肉麵", price: 180, cost: 58 };

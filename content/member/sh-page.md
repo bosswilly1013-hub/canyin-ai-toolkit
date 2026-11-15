@@ -14,7 +14,7 @@ video:
 tool: /downloads/flow.html
 file: /downloads/flow.html
 ---
-沒寫份量，訊息會被問滿。
+沒寫份量，訊息會被問滿。團購從拍照、諮詢、結帳到出貨，看[電商流程總覽](/downloads/ecom-flow.html)。門市一天的順序仍用店務流程。
 
 ## 怎麼做
 

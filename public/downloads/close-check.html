@@ -1,12 +1,16 @@
 <!doctype html>
 <html lang="zh-Hant">
 <meta charset="utf-8">
+<link rel="stylesheet" href="/downloads/tool-skin.css">
 <title>打烊檢查</title>
-<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<style>label{display:block;margin:12px 0;font-size:1.05rem}</style>
+<header><b>打烊檢查</b></header>
+<main>
 <h1>打烊檢查</h1>
 <p>勾過的項目存在這台裝置。</p>
 <form id="list"></form>
 <button id="clear" type="button">清空示範資料</button>
+</main>
 <script>
 const KEY = "jiuwo.tool.close-check";
 const items = ["瓦斯關閉", "冰箱溫度已記", "地面拖乾", "生熟分開", "現金對完", "垃圾清出"];

@@ -8,8 +8,10 @@
   header { background: #14221c; color: #fff; padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .kpi { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 12px; }
   .kpi div { background: #14221c; color: #fff; border-radius: 12px; padding: 8px 12px; }
-  table { border-collapse: collapse; background: #fffdf8; font-size: 12px; }
-  td, th { border-bottom: 1px solid #e4ddd0; padding: 3px; }
+  table { border-collapse: collapse; background: #fffdf8; font-size: 15px; width: 100%; }
+  td, th { border-bottom: 1px solid #e4ddd0; padding: 8px 10px; }
+  #body { min-height: calc(100vh - 210px); }
+  #body svg { width: 100%; height: auto; min-height: 220px; }
   input[type=number] { width: 4.6rem; }
   button.on { background: #e15a2b; color: #fff; }
   .bar { fill: #1d3c34; } .low { fill: #c4473a; }
@@ -137,7 +139,7 @@ function renderYear() {
   }).join("");
   document.getElementById("kpi").innerHTML = "";
   document.getElementById("tabs").innerHTML = "";
-  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year}</h2><svg width="560" height="170">${bars}</svg><p>橘線是該月兩平。低於兩平的月份是紅色。</p><table><tr><th>月</th><th>營業額</th><th>淨利</th><th>兩平</th></tr>${rows.map((row, i) => `<tr><td>${i+1}</td><td>${Math.round(row.sales).toLocaleString()}</td><td>${Math.round(row.profit).toLocaleString()}</td><td>${Math.round(row.be).toLocaleString()}</td></tr>`).join("")}</table>`;
+  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year}</h2><svg viewBox="0 0 560 170" width="100%" height="280">${bars}</svg><p>橘線是該月兩平。低於兩平的月份是紅色。</p><table><tr><th>月</th><th>營業額</th><th>淨利</th><th>兩平</th></tr>${rows.map((row, i) => `<tr><td>${i+1}</td><td>${Math.round(row.sales).toLocaleString()}</td><td>${Math.round(row.profit).toLocaleString()}</td><td>${Math.round(row.be).toLocaleString()}</td></tr>`).join("")}</table>`;
 }
 function companyPL(c) {
   const net = c.revenue - c.discount;
