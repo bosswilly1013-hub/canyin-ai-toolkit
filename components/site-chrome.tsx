@@ -25,6 +25,8 @@ function active(pathname: string, href: string) {
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
+  const member = pathname === "/" || pathname.startsWith("/journey") || pathname.startsWith("/about") || pathname.startsWith("/read");
+  if (member) return <>{children}</>;
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2">

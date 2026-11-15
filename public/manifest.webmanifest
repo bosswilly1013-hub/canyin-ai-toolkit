@@ -1,0 +1,12 @@
+{
+  "name": "久沃訂閱",
+  "short_name": "久沃",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101614",
+  "theme_color": "#101614",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

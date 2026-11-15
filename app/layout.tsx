@@ -12,11 +12,12 @@ const dm = DM_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "餐飲 AI 懶人包",
-    template: "%s · 餐飲 AI 懶人包",
+    default: "久沃訂閱",
+    template: "%s · 久沃訂閱",
   },
-  description:
-    "給台灣餐廳的現成系統。把自己的叫貨、菜單、班表或客人名單丟進去，變成你的系統。",
+  description: "久沃餐飲訂閱者專區。教材、歷程，和打開就能用的店務工具。",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "久沃訂閱", statusBarStyle: "black-translucent" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
