@@ -523,11 +523,11 @@ function HomeView(props: {
               </>
             ) : (<>
             <div className="cats">
-              <button type="button" className={filter === "path" ? "cat on" : "cat"} onClick={() => setFilter("path")}>新手入門</button>
-              <button type="button" className={filter === "new" ? "cat on" : "cat"} onClick={() => setFilter("new")}>最新更新</button>
-              <button type="button" className={filter === "downloads" ? "cat on" : "cat"} onClick={() => setFilter("downloads")}>下載區</button>
+              <button type="button" className={filter === "path" ? "cat on" : "cat"} onClick={() => { setFilter("path"); document.getElementById("library")?.scrollIntoView({ behavior: "smooth" }); }}>新手入門</button>
+              <button type="button" className={filter === "new" ? "cat on" : "cat"} onClick={() => { setFilter("new"); document.getElementById("library")?.scrollIntoView({ behavior: "smooth" }); }}>最新更新</button>
+              <button type="button" className={filter === "downloads" ? "cat on" : "cat"} onClick={() => { setFilter("downloads"); document.getElementById("library")?.scrollIntoView({ behavior: "smooth" }); }}>下載區</button>
               <i className="sep" />
-              {topics.map((topic) => <button type="button" key={topic.id} className={filter === topic.id ? "cat on" : "cat"} onClick={() => setFilter(topic.id)}>{topic.name}</button>)}
+              {topics.map((topic) => <button type="button" key={topic.id} className={filter === topic.id ? "cat on" : "cat"} onClick={() => { setFilter(topic.id); document.getElementById("library")?.scrollIntoView({ behavior: "smooth" }); }}>{topic.name}</button>)}
             </div>
             {filter === "path" || filter === "claude" ? (
               <div className="path-tbl" id={filter === "claude" ? "path-claude" : "path"}>
@@ -637,7 +637,7 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
     const key = item.since.slice(0, 7);
     map.set(key, (map.get(key) || 0) + 1);
     return map;
-  }, new Map<string, number>())).map(([month, count]) => ({ month, count }));
+  }, new Map<string, number>())).map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month));
   const growth = SUBS.map((point, index) => ({ ...point, add: index === 0 ? point.count : point.count - SUBS[index - 1].count }));
   const first = SUBS[0]?.count || 0;
   const last = SUBS[SUBS.length - 1]?.count || 0;
@@ -667,7 +667,7 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
         <>
           <div className="chart">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={months}><XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#C3F000" /></BarChart>
+              <BarChart data={months}><XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#1A1A16" /></BarChart>
             </ResponsiveContainer>
           </div>
           <div className="chips">
