@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>店面走道</title>
+<body style="font-family:sans-serif;max-width:640px;margin:24px">
+<h1>店面走道</h1>
+<p>拖動桌子。走道少於 75 公分會提醒。位置存在這台裝置。</p>
+<div id="room" style="position:relative;height:360px;background:#f6f3ec;border:1px solid #e4ddd0;border-radius:12px"></div>
+<p id="warn"></p>
+<label>走道寬（公分）<input id="aisle" type="number"></label>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.floor";
+const demo = { x: 80, y: 60, aisle: 75 };
+const room = document.getElementById("room");
+const table = document.createElement("div");
+table.textContent = "四桌";
+table.style.cssText = "position:absolute;width:90px;height:60px;background:#1d3c34;color:#fff;border-radius:8px;display:grid;place-items:center;cursor:grab";
+room.append(table);
+function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
+function paint(data) {
+  table.style.left = data.x + "px";
+  table.style.top = data.y + "px";
+  document.getElementById("aisle").value = data.aisle;
+  document.getElementById("warn").textContent = Number(data.aisle) < 75 ? "走道不到 75 公分，兩個人會卡住。" : "走道有 75 公分以上。";
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+let data = read();
+paint(data);
+let drag = null;
+table.onpointerdown = (event) => { drag = { dx: event.clientX - data.x, dy: event.clientY - data.y }; table.setPointerCapture(event.pointerId); };
+table.onpointermove = (event) => {
+  if (!drag) return;
+  data.x = Math.max(0, event.clientX - drag.dx);
+  data.y = Math.max(0, event.clientY - drag.dy);
+  paint(data);
+};
+table.onpointerup = () => { drag = null; };
+document.getElementById("aisle").oninput = () => { data.aisle = Number(document.getElementById("aisle").value); paint(data); };
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); data = { ...demo }; paint(data); };
+</script>

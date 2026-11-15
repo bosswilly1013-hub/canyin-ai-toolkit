@@ -10,6 +10,8 @@ hot: 11
 prompt: 
 download: 
 downloadLabel: 
+tool: schedule
+file: /downloads/week-shift.xlsx
 ---
 每位員工寫時薪和職務。排班用小時，不要用「早班」這種算不出錢的詞。本站排班點一下就是休、四小時或八小時。
 

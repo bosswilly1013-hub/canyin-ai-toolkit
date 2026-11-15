@@ -10,6 +10,8 @@ hot: 17
 prompt: 
 download: 
 downloadLabel: 
+tool: sales
+file: /downloads/close-four.csv
 ---
 打烊十五分鐘內記完。超過四個數字，人會隔天補，補了就不準。
 

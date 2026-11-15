@@ -1,0 +1,23 @@
+/** Willy 改這份。數字是編輯給的基礎觀看次數，會加上每位訪客這台裝置自己的次數。 */
+export const seededViews: Record<string, number> = {
+  "order-columns": 860,
+  "close-four": 740,
+  "first-question": 690,
+  "rent-first": 640,
+  "repeat-ten": 610,
+  "one-change": 580,
+  "delivery-price": 540,
+  "wage-hours": 500,
+  "rule-on-counter": 460,
+  "margin-weekly": 430,
+  "tool-route": 400,
+  "three-posts": 360,
+  "owner-wage": 330,
+  "usual-qty": 300,
+  "taiwan-tone": 280,
+  "split-sop": 250,
+  "one-store": 220,
+  "food-cost-jump": 190,
+  "hire-eighty": 160,
+  "short-reply": 140,
+};

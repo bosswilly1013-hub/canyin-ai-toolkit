@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>品牌定位圖</title>
+<body style="font-family:sans-serif;max-width:640px;margin:24px">
+<h1>品牌定位圖</h1>
+<p>橫軸是價格，縱軸是份量。點的位置存在這台裝置。</p>
+<label>菜名 <input id="name"></label>
+<label>價格 1–10 <input id="x" type="range" min="1" max="10"></label>
+<label>份量 1–10 <input id="y" type="range" min="1" max="10"></label>
+<div id="board" style="position:relative;height:280px;border:1px solid #e4ddd0;border-radius:12px;margin:12px 0"></div>
+<p id="out"></p>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.position";
+const demo = { name: "牛肉麵", x: 6, y: 7 };
+function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
+function paint(data) {
+  document.getElementById("name").value = data.name;
+  document.getElementById("x").value = data.x;
+  document.getElementById("y").value = data.y;
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  const dot = document.createElement("div");
+  dot.textContent = data.name;
+  dot.style.cssText = "position:absolute;background:#e15a2b;color:#fff;border-radius:999px;padding:6px 8px";
+  dot.style.left = (Number(data.x) - 1) * 9 + "%";
+  dot.style.bottom = (Number(data.y) - 1) * 9 + "%";
+  board.append(dot);
+  document.getElementById("out").textContent = "價格 " + data.x + "，份量 " + data.y + "。跟隔壁比，不要兩個軸同時加。";
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+let data = read();
+["name", "x", "y"].forEach((id) => document.getElementById(id).addEventListener("input", () => {
+  data[id] = document.getElementById(id).value;
+  paint(data);
+}));
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); data = { ...demo }; paint(data); };
+paint(data);
+</script>

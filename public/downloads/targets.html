@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>營業目標拆解</title>
+<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<h1>營業目標拆解</h1>
+<p>月目標拆成每天、午晚。存在這台裝置。</p>
+<label>本月目標 <input id="goal" type="number"></label>
+<label>營業天數 <input id="days" type="number"></label>
+<label>午餐占比（0.4 代表四成）<input id="lunch" type="number" step="0.01"></label>
+<p id="out"></p>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.targets";
+const demo = { goal: 900000, days: 26, lunch: 0.4 };
+const ids = Object.keys(demo);
+function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
+function write() {
+  const data = {};
+  ids.forEach((id) => { data[id] = document.getElementById(id).value; });
+  localStorage.setItem(KEY, JSON.stringify(data));
+  const day = Number(data.days) > 0 ? Math.round(Number(data.goal) / Number(data.days)) : 0;
+  const lunch = Math.round(day * Number(data.lunch));
+  document.getElementById("out").textContent = "每天約 " + day + " 元。午餐 " + lunch + " 元，晚餐 " + (day - lunch) + " 元。";
+}
+const saved = read();
+ids.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
+write();
+</script>

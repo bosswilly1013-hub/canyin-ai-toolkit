@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>打烊檢查</title>
+<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<h1>打烊檢查</h1>
+<p>勾過的項目存在這台裝置。</p>
+<form id="list"></form>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.close-check";
+const items = ["瓦斯關閉", "冰箱溫度已記", "地面拖乾", "生熟分開", "現金對完", "垃圾清出"];
+const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+const form = document.getElementById("list");
+items.forEach((name) => {
+  const label = document.createElement("label");
+  label.style.display = "block";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = !!saved[name];
+  box.onchange = () => {
+    const next = {};
+    form.querySelectorAll("input").forEach((input) => { next[input.dataset.name] = input.checked; });
+    localStorage.setItem(KEY, JSON.stringify(next));
+  };
+  box.dataset.name = name;
+  label.append(box, " " + name);
+  form.append(label);
+});
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); form.querySelectorAll("input").forEach((input) => { input.checked = false; }); };
+</script>

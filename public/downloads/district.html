@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>商圈調查</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<style>
+  body { font-family: sans-serif; margin: 16px; max-width: 880px; }
+  #map { height: 420px; border-radius: 12px; }
+  label { margin-right: 8px; }
+</style>
+<h1>商圈調查</h1>
+<p>以示範店為圓心，看 300、500、800 公尺內有哪些點。選擇存在這台裝置。</p>
+<div id="map"></div>
+<p>
+  <label><input type="radio" name="r" value="300"> 300 公尺</label>
+  <label><input type="radio" name="r" value="500"> 500 公尺</label>
+  <label><input type="radio" name="r" value="800"> 800 公尺</label>
+  <button id="reset" type="button">清空示範資料</button>
+</p>
+<ul id="list"></ul>
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script>
+const KEY = "jiuwo.tool.district";
+const shop = { name: "示範店", lat: 22.6273, lng: 120.3014 };
+const spots = [
+  { name: "巷口早餐", lat: 22.6285, lng: 120.3022 },
+  { name: "市場口", lat: 22.631, lng: 120.305 },
+  { name: "學校側門", lat: 22.636, lng: 120.308 },
+  { name: "捷運出口", lat: 22.623, lng: 120.299 }
+];
+function meters(a, b) {
+  const dy = (a.lat - b.lat) * 111000;
+  const dx = (a.lng - b.lng) * 102000;
+  return Math.hypot(dx, dy);
+}
+const map = L.map("map").setView([shop.lat, shop.lng], 15);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+L.marker([shop.lat, shop.lng]).addTo(map).bindPopup(shop.name);
+spots.forEach((spot) => L.circleMarker([spot.lat, spot.lng], { radius: 6, color: "#1d3c34" }).addTo(map).bindPopup(spot.name));
+let circle = L.circle([shop.lat, shop.lng], { radius: 500, color: "#e15a2b" }).addTo(map);
+function show(radius) {
+  localStorage.setItem(KEY, String(radius));
+  circle.setRadius(radius);
+  const inside = spots.filter((spot) => meters(shop, spot) <= radius);
+  document.getElementById("list").innerHTML = inside.map((spot) => "<li>" + spot.name + " · " + Math.round(meters(shop, spot)) + " 公尺</li>").join("") || "<li>這個圈子裡沒有示範點</li>";
+}
+const saved = Number(localStorage.getItem(KEY) || 500);
+document.querySelectorAll("input[name=r]").forEach((input) => {
+  input.checked = Number(input.value) === saved;
+  input.onchange = () => show(Number(input.value));
+});
+document.getElementById("reset").onclick = () => { localStorage.removeItem(KEY); show(500); document.querySelector("input[value='500']").checked = true; };
+show(saved);
+</script>

@@ -9,6 +9,7 @@ import { authStorageKey, aiStartDate, founderQuote, passwordSha256 } from "@/lib
 import { EVENTS, SUBS, SYSTEMS, type EventKind } from "@/lib/member/dashboard";
 import { downloadKinds, downloads, formatBytes } from "@/lib/member/downloads";
 import type { Article } from "@/lib/member/load";
+import { seededViews } from "@/lib/member/ranking";
 import { claudePath, learningPath, subEmoji, topics } from "@/lib/member/topics";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import "@/app/member.css";
@@ -307,7 +308,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
               <button type="button" onClick={() => setShowTool((value) => !value)}>直接開啟使用</button>
               {" "}
               {article.file ? <a href={article.file} download>下載到電腦</a> : null}
-              {showTool ? <iframe title={article.title} src={`/systems/${article.tool}/`} /> : null}
+              {showTool ? <iframe title={article.title} src={article.tool.startsWith("/") ? article.tool : `/systems/${article.tool}/`} /> : null}
             </div>
           ) : null}
           <label className="no-print">留給自己的筆記
@@ -358,7 +359,8 @@ function HomeView(props: {
     if (filter === "path") return learningPath.includes(article.slug);
     return article.category === filter;
   });
-  const ranked = articles.slice().sort((a, b) => (props.viewMap[b.slug] || 0) - (props.viewMap[a.slug] || 0) || b.hot - a.hot).slice(0, 20);
+  const score = (slug: string) => (seededViews[slug] || 0) + (props.viewMap[slug] || 0);
+  const ranked = articles.slice().sort((a, b) => score(b.slug) - score(a.slug)).slice(0, 20);
   const files = downloads.filter((file) => fileKind === "全部" || file.kind === fileKind);
 
   return (
@@ -475,8 +477,9 @@ function HomeView(props: {
               );
             })}
             <h3>熱門排行</h3>
+            <p>基礎次數寫在 ranking.ts，加上你這台看過的次數。</p>
             {ranked.map((article) => (
-              <Link key={article.slug} href={`/read/${article.slug}`}>{article.title} · {props.viewMap[article.slug] || 0}</Link>
+              <Link key={article.slug} href={`/read/${article.slug}`}>{article.title} · {score(article.slug)}</Link>
             ))}
             <Link href="/about" className="card">認識 Willy</Link>
           </aside>
@@ -508,6 +511,7 @@ function HomeView(props: {
             <div className="cards" id="new">
               {(filter === "downloads" ? [] : visible).map((article, index) => (
                 <Link key={article.slug} href={`/read/${article.slug}`} className="card">
+                  <span className={`cover cover-${article.category}`}><small>{articleKind(article)}</small><b>{topics.find((topic) => topic.id === article.category)?.name}</b></span>
                   <span>{articleKind(article)}{isNew(article.date) ? " · 新" : ""}</span>
                   <b>{filter !== "all" && filter !== "new" ? `STEP ${index + 1} ` : ""}{article.title}</b>
                   <p>{article.summary}</p>

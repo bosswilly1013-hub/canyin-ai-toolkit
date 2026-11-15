@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>送貨路線</title>
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<style>
+  body { font-family: sans-serif; margin: 16px; max-width: 880px; }
+  #map { height: 420px; border-radius: 12px; margin: 12px 0; }
+  .pin { background: #e15a2b; color: #fff; border-radius: 50%; width: 22px; height: 22px; line-height: 22px; text-align: center; }
+  label { display: block; margin: 6px 0; }
+</style>
+<h1>送貨路線</h1>
+<p>從示範店出發，下一家選最近的點。順序、站名存在這台裝置。地圖是 OpenStreetMap。</p>
+<div id="map"></div>
+<ol id="order"></ol>
+<p>
+  <button id="copy" type="button">複製給 LINE</button>
+  <button id="reset" type="button">清空示範資料</button>
+</p>
+<label>加一站名稱 <input id="name" value="左營"></label>
+<label>緯度 <input id="lat" value="22.68"></label>
+<label>經度 <input id="lng" value="120.30"></label>
+<button id="add" type="button">加入這一站</button>
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script>
+const KEY = "jiuwo.tool.route";
+const DEMO = [
+  { name: "示範店（出發）", lat: 22.6273, lng: 120.3014, home: true },
+  { name: "鼓山", lat: 22.652, lng: 120.281 },
+  { name: "鹽埕", lat: 22.622, lng: 120.281 },
+  { name: "前金", lat: 22.627, lng: 120.292 },
+  { name: "新興", lat: 22.631, lng: 120.312 }
+];
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch (error) {}
+  return DEMO.map((row) => ({ ...row }));
+}
+function km(a, b) {
+  const dy = (a.lat - b.lat) * 111;
+  const dx = (a.lng - b.lng) * 102;
+  return Math.hypot(dx, dy);
+}
+function orderOf(rows) {
+  const home = rows.find((row) => row.home) || rows[0];
+  const rest = rows.filter((row) => row !== home);
+  const order = [home];
+  let current = home;
+  while (rest.length) {
+    rest.sort((a, b) => km(current, a) - km(current, b));
+    current = rest.shift();
+    order.push(current);
+  }
+  return order;
+}
+let rows = load();
+const map = L.map("map").setView([22.63, 120.3], 13);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+function draw() {
+  layer.clearLayers();
+  const order = orderOf(rows);
+  L.polyline(order.map((point) => [point.lat, point.lng]), { color: "#e15a2b" }).addTo(layer);
+  order.forEach((point, index) => {
+    L.marker([point.lat, point.lng], { icon: L.divIcon({ className: "pin", html: String(index + 1), iconSize: [22, 22] }) })
+      .addTo(layer)
+      .bindPopup(point.name);
+  });
+  document.getElementById("order").innerHTML = order.map((point, index) => {
+    const href = "https://www.google.com/maps/dir/?api=1&destination=" + point.lat + "," + point.lng + "&travelmode=driving";
+    return "<li>" + (index + 1) + ". " + point.name + " <a href=\"" + href + "\" target=\"_blank\" rel=\"noreferrer\">Google 導航</a></li>";
+  }).join("");
+  document.getElementById("copy").onclick = () => {
+    const text = "今天路線\n" + order.map((point, index) => (index + 1) + ". " + point.name).join("\n");
+    navigator.clipboard.writeText(text).then(() => { document.getElementById("copy").textContent = "已複製給 LINE"; });
+  };
+  map.fitBounds(order.map((point) => [point.lat, point.lng]), { padding: [20, 20] });
+}
+document.getElementById("add").onclick = () => {
+  rows = rows.concat([{ name: document.getElementById("name").value || "新站", lat: Number(document.getElementById("lat").value), lng: Number(document.getElementById("lng").value) }]);
+  localStorage.setItem(KEY, JSON.stringify(rows));
+  draw();
+};
+document.getElementById("reset").onclick = () => {
+  localStorage.removeItem(KEY);
+  rows = DEMO.map((row) => ({ ...row }));
+  draw();
+};
+draw();
+</script>

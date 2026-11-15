@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>食材比</title>
+<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<h1>一道菜的食材比</h1>
+<p>成本除以售價。存在這台裝置。</p>
+<label>菜名 <input id="name"></label>
+<label>售價 <input id="price" type="number"></label>
+<label>食材成本 <input id="cost" type="number"></label>
+<p id="out"></p>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.food-cost";
+const demo = { name: "紅燒牛肉麵", price: 180, cost: 58 };
+const ids = Object.keys(demo);
+function read() { try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { ...demo }; } }
+function write() {
+  const data = {};
+  ids.forEach((id) => { data[id] = document.getElementById(id).value; });
+  localStorage.setItem(KEY, JSON.stringify(data));
+  const ratio = Number(data.price) > 0 ? Number(data.cost) / Number(data.price) : 0;
+  document.getElementById("out").textContent = data.name + " 食材比 " + Math.round(ratio * 1000) / 10 + "%。超過 35% 就先查份量或進價。";
+}
+const saved = read();
+ids.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); ids.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
+write();
+</script>

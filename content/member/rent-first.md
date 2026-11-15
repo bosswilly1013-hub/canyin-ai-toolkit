@@ -10,6 +10,8 @@ hot: 16
 prompt: 
 download: /systems/orders/
 downloadLabel: 打開相關工具
+tool: /downloads/break-even.html
+file: /downloads/break-even.html
 ---
 固定成本先加四項：房租、人事（含你自己的薪水）、水電、其他。不要先加裝潢折舊，那是另一張表。
 

@@ -10,6 +10,8 @@ hot: 14
 prompt: 
 download: /systems/orders/
 downloadLabel: 打開相關工具
+tool: /downloads/delivery-calc.html
+file: /downloads/delivery-calc.html
 ---
 外送先寫下：店內價、食材、盒子袋子、抽成百分比、你想留下的毛利。
 

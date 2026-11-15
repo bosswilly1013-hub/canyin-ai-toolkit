@@ -10,6 +10,8 @@ hot: 10
 prompt: 
 download: /systems/orders/
 downloadLabel: 打開相關工具
+tool: /downloads/food-cost.html
+file: /downloads/food-cost.html
 ---
 選五道銷售前段的菜。每道寫售價、這週實際進貨用量、進價。不要用三個月前的報價。
 

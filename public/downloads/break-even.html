@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<title>損益兩平</title>
+<body style="font-family:sans-serif;max-width:520px;margin:24px">
+<h1>損益兩平</h1>
+<p>固定成本除以每位客人留下的錢。數字存在這台裝置。</p>
+<label>房租 <input id="rent" type="number"></label>
+<label>人事 <input id="labor" type="number"></label>
+<label>水電 <input id="util" type="number"></label>
+<label>其他 <input id="other" type="number"></label>
+<label>平均客單 <input id="ticket" type="number"></label>
+<label>食材比（0.32 代表 32%）<input id="food" type="number" step="0.01"></label>
+<p id="out"></p>
+<button id="clear" type="button">清空示範資料</button>
+<script>
+const KEY = "jiuwo.tool.break-even";
+const fields = ["rent", "labor", "util", "other", "ticket", "food"];
+const demo = { rent: 60000, labor: 180000, util: 15000, other: 20000, ticket: 180, food: 0.32 };
+function read() {
+  try { return { ...demo, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; }
+  catch { return { ...demo }; }
+}
+function write() {
+  const data = {};
+  fields.forEach((id) => { data[id] = document.getElementById(id).value; });
+  localStorage.setItem(KEY, JSON.stringify(data));
+  const fixed = ["rent", "labor", "util", "other"].reduce((sum, id) => sum + Number(data[id] || 0), 0);
+  const each = Number(data.ticket) * (1 - Number(data.food));
+  const people = each > 0 ? Math.ceil(fixed / each) : 0;
+  document.getElementById("out").textContent = "一個月固定 " + fixed + " 元。每位客人約留下 " + Math.round(each) + " 元。一天約要 " + Math.ceil(people / 30) + " 位，一個月 " + people + " 位。";
+}
+const saved = read();
+fields.forEach((id) => { document.getElementById(id).value = saved[id]; document.getElementById(id).addEventListener("input", write); });
+document.getElementById("clear").onclick = () => { localStorage.removeItem(KEY); fields.forEach((id) => { document.getElementById(id).value = demo[id]; }); write(); };
+write();
+</script>

@@ -10,6 +10,8 @@ hot: 6
 prompt: 
 download: /systems/orders/
 downloadLabel: 打開相關工具
+tool: /downloads/floor.html
+file: /downloads/floor.html
 ---
 服務走道至少留七十五公分，那是一個人側身拿盤還過得去的寬度。主走道再寬一點。
 
