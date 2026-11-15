@@ -1,6 +1,6 @@
 "use client";
 
-import { analyzeBreakEven, exampleBreakEven, type BreakEvenInput } from "@/lib/calc/break-even";
+import { analyzeBreakEven, breakEvenProblem, exampleBreakEven, type BreakEvenInput } from "@/lib/calc/break-even";
 import { ntd, num, pct, signedNtd } from "@/lib/format";
 import { usePersisted } from "@/lib/storage";
 import { NumberField } from "@/components/number-field";
@@ -19,6 +19,7 @@ export function BreakEvenTool() {
   const { value, setValue, reset, fromStorage } = usePersisted("lazykit.v1.break-even", exampleBreakEven);
   const result = analyzeBreakEven(value);
   const selected = result.selected;
+  const problem = breakEvenProblem(value);
 
   function set<K extends keyof BreakEvenInput>(key: K, next: BreakEvenInput[K]) {
     setValue({ ...value, [key]: next });
@@ -47,16 +48,17 @@ export function BreakEvenTool() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <div className="grid gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2">
-          <NumberField label="房租" suffix="元" value={value.rent} onChange={(next) => set("rent", next)} hint="一個月" />
-          <NumberField label="人事" suffix="元" value={value.labor} onChange={(next) => set("labor", next)} hint="含老闆自己的薪水比較不會算錯" />
-          <NumberField label="水電瓦斯" suffix="元" value={value.utilities} onChange={(next) => set("utilities", next)} />
-          <NumberField label="其他固定" suffix="元" value={value.otherFixed} onChange={(next) => set("otherFixed", next)} hint="網路、保險、垃圾、耗材月費" />
-          <NumberField label="變動成本比例" suffix="%" value={value.variablePct} onChange={(next) => set("variablePct", next)} hint="食材加包材占售價" />
-          <NumberField label="客單價" suffix="元" value={value.avgTicket} onChange={(next) => set("avgTicket", next)} />
-          <NumberField label="一個月營業天數" suffix="天" value={value.openDays} onChange={(next) => set("openDays", next)} />
-          <NumberField label="想看的折扣" suffix="%" value={value.discountPct} onChange={(next) => set("discountPct", next)} hint="10 代表打九折" />
+          <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">金額可以打 48,000，逗號會拿掉。負數不會被接受。</p>
+          <NumberField label="房租" suffix="元" min={0} max={1e12} value={value.rent} onChange={(next) => set("rent", next)} hint="一個月" />
+          <NumberField label="人事" suffix="元" min={0} max={1e12} value={value.labor} onChange={(next) => set("labor", next)} hint="含老闆自己的薪水比較不會算錯" />
+          <NumberField label="水電瓦斯" suffix="元" min={0} max={1e12} value={value.utilities} onChange={(next) => set("utilities", next)} />
+          <NumberField label="其他固定" suffix="元" min={0} max={1e12} value={value.otherFixed} onChange={(next) => set("otherFixed", next)} hint="網路、保險、垃圾、耗材月費" />
+          <NumberField label="變動成本比例" suffix="%" min={0} max={100} value={value.variablePct} onChange={(next) => set("variablePct", next)} hint="食材加包材占售價，0 到 100" />
+          <NumberField label="客單價" suffix="元" min={0} max={1e12} value={value.avgTicket} onChange={(next) => set("avgTicket", next)} />
+          <NumberField label="一個月營業天數" suffix="天" min={1} max={31} value={value.openDays} onChange={(next) => set("openDays", next)} />
+          <NumberField label="想看的折扣" suffix="%" min={0} max={100} value={value.discountPct} onChange={(next) => set("discountPct", next)} hint="10 代表打九折" />
           <div className="sm:col-span-2">
-            <NumberField label="如果每天來這麼多人" suffix="人" value={value.expectedCustomersPerDay} onChange={(next) => set("expectedCustomersPerDay", next)} hint="用來試算打折前後賺或虧" />
+            <NumberField label="如果每天來這麼多人" suffix="人" min={0} max={100000} value={value.expectedCustomersPerDay} onChange={(next) => set("expectedCustomersPerDay", next)} hint="用來試算打折前後賺或虧" />
           </div>
           <p className="sm:col-span-2 text-sm text-muted-foreground">
             固定成本合計 <span className="num font-medium text-foreground">{ntd(result.fixed)}</span>
@@ -65,11 +67,10 @@ export function BreakEvenTool() {
         </div>
 
         <div className="min-w-0 space-y-4">
-          {selected.customersPerDay == null ? (
-            <Callout tone="bad">
-              這組數字沒有兩平點。打折後的客單價是 {ntd(selected.ticket)}，食材就要 {ntd(result.variablePerGuest)}，
-              一位客人貢獻 {ntd(selected.contributionPerGuest)}。先調價或減成本，再談折扣。
-            </Callout>
+          {problem ? (
+            <Callout tone="bad">{problem}</Callout>
+          ) : selected.customersPerDay == null ? (
+            <Callout tone="bad">這組數字沒有兩平點。先看客單價、食材比和折扣。</Callout>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
               <Stat label="月兩平營業額" value={ntd(selected.monthlyRevenue)} hint={value.discountPct ? `含 ${value.discountPct}% 折扣` : "不打折"} />
@@ -79,6 +80,7 @@ export function BreakEvenTool() {
           )}
 
           <div className="min-w-0 overflow-x-auto rounded-2xl bg-card ring-1 ring-foreground/10">
+            <p className="px-3 pt-3 text-xs text-muted-foreground sm:hidden">表格可以左右滑動。</p>
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="text-xs text-muted-foreground">
                 <tr>

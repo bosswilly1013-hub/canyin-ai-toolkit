@@ -58,7 +58,10 @@ export function FloorTool() {
   }
 
   function updateItem(id: string, recipe: (item: FloorItem) => FloorItem) {
-    commit({ ...value, items: value.items.map((item) => (item.id === id ? recipe(item) : item)) });
+    setValue((current) => ({
+      ...current,
+      items: current.items.map((item) => (item.id === id ? clampItem(recipe(item), current.widthM, current.depthM) : item)),
+    }));
   }
 
   function onPointerDown(event: ReactPointerEvent, id: string) {
@@ -158,7 +161,7 @@ export function FloorTool() {
         <NumberField label="深度" suffix="公尺" step="0.1" value={value.depthM} onChange={(next) => commit({ ...value, depthM: Math.max(1, next) })} />
       </div>
       <p className="text-sm text-muted-foreground">
-        面積 {num(area, 1)} 平方公尺，約 {num(ping(area), 1)} 坪。桌子的框含拉椅子的位置，走道是框和框之間的距離。
+        面積 {num(area, 1)} 平方公尺，約 {num(ping(area), 1)} 坪。桌子的框含拉椅子的位置，走道是框和框之間的距離。點選物件後可用方向鍵移動。
       </p>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(floorKinds) as FloorKind[]).map((kind) => (
@@ -192,6 +195,19 @@ export function FloorTool() {
                 color: item.kind === "counter" || item.kind === "door" ? "#fff8f3" : "#1c1915",
               }}
               onPointerDown={(event) => onPointerDown(event, item.id)}
+              onKeyDown={(event) => {
+                const step = value.snap ? 0.1 : 0.05;
+                const delta: Record<string, [number, number]> = {
+                  ArrowRight: [step, 0],
+                  ArrowLeft: [-step, 0],
+                  ArrowUp: [0, -step],
+                  ArrowDown: [0, step],
+                };
+                const moveBy = delta[event.key];
+                if (!moveBy) return;
+                event.preventDefault();
+                updateItem(item.id, (current) => ({ ...current, x: current.x + moveBy[0], y: current.y + moveBy[1] }));
+              }}
             >
               <span className="block px-1 pt-1">{item.name}</span>
             </button>

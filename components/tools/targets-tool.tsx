@@ -18,17 +18,18 @@ export function TargetsTool() {
     <div className="space-y-4">
       <StorageNote fromStorage={fromStorage} onReset={reset} />
       <div className="grid gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2 lg:grid-cols-3">
-        <NumberField label="這個月想做的營業額" suffix="元" value={value.monthlyTarget} onChange={(next) => set("monthlyTarget", next)} />
-        <NumberField label="平日天數" suffix="天" value={value.weekdays} onChange={(next) => set("weekdays", next)} hint="星期一到五，扣掉公休" />
-        <NumberField label="週末天數" suffix="天" value={value.weekendDays} onChange={(next) => set("weekendDays", next)} />
-        <NumberField label="週末是平日的幾倍" suffix="倍" step="0.05" value={value.weekendRatio} onChange={(next) => set("weekendRatio", next)} hint="1.45 代表週末多 45%" />
-        <NumberField label="客單價" suffix="元" value={value.avgTicket} onChange={(next) => set("avgTicket", next)} />
-        <NumberField label="午餐占比" suffix="%" value={value.lunchPct} onChange={(next) => set("lunchPct", next)} />
-        <NumberField label="晚餐占比" suffix="%" value={value.dinnerPct} onChange={(next) => set("dinnerPct", next)} />
-        <NumberField label="其他時段占比" suffix="%" value={value.otherPct} onChange={(next) => set("otherPct", next)} hint="下午茶、宵夜。三個時段要加總 100" />
-        <NumberField label="回購占比" suffix="%" value={value.returningPct} onChange={(next) => set("returningPct", next)} />
-        <NumberField label="介紹占比" suffix="%" value={value.referralPct} onChange={(next) => set("referralPct", next)} hint="老客人帶來的" />
-        <NumberField label="新客占比" suffix="%" value={value.newPct} onChange={(next) => set("newPct", next)} hint="三個來源要加總 100" />
+        <p className="text-xs leading-5 text-muted-foreground sm:col-span-2 lg:col-span-3">金額可以打 500,000。時段或來源沒加滿 100% 也會先照比例拆給你看。</p>
+        <NumberField label="這個月想做的營業額" suffix="元" min={0} max={1e12} value={value.monthlyTarget} onChange={(next) => set("monthlyTarget", next)} />
+        <NumberField label="平日天數" suffix="天" min={0} max={31} value={value.weekdays} onChange={(next) => set("weekdays", next)} hint="星期一到五，扣掉公休" />
+        <NumberField label="週末天數" suffix="天" min={0} max={31} value={value.weekendDays} onChange={(next) => set("weekendDays", next)} />
+        <NumberField label="週末是平日的幾倍" suffix="倍" min={0.1} max={10} step="0.05" value={value.weekendRatio} onChange={(next) => set("weekendRatio", next)} hint="1.45 代表週末多 45%" />
+        <NumberField label="客單價" suffix="元" min={0} max={1e12} value={value.avgTicket} onChange={(next) => set("avgTicket", next)} />
+        <NumberField label="午餐占比" suffix="%" min={0} max={100} value={value.lunchPct} onChange={(next) => set("lunchPct", next)} />
+        <NumberField label="晚餐占比" suffix="%" min={0} max={100} value={value.dinnerPct} onChange={(next) => set("dinnerPct", next)} />
+        <NumberField label="其他時段占比" suffix="%" min={0} max={100} value={value.otherPct} onChange={(next) => set("otherPct", next)} hint="下午茶、宵夜" />
+        <NumberField label="回購占比" suffix="%" min={0} max={100} value={value.returningPct} onChange={(next) => set("returningPct", next)} />
+        <NumberField label="介紹占比" suffix="%" min={0} max={100} value={value.referralPct} onChange={(next) => set("referralPct", next)} hint="老客人帶來的" />
+        <NumberField label="新客占比" suffix="%" min={0} max={100} value={value.newPct} onChange={(next) => set("newPct", next)} />
       </div>
 
       {"error" in result ? (
@@ -42,31 +43,45 @@ export function TargetsTool() {
             <Stat label="驗算合計" value={ntd(result.checkRevenue)} hint="平日加週末要回到月目標" tone="paper" />
           </div>
 
-          {result.mealsOk ? (
-            <SplitTable
-              title="時段"
-              headers={["時段", "占比", "平日營業額", "平日人數", "週末營業額", "週末人數"]}
-              rows={result.meals.map((meal) => [
-                meal.label,
-                `${num(meal.pct, 0)}%`,
-                ntd(meal.weekday.revenue),
-                `${num(meal.weekday.customers, 1)} 人`,
-                ntd(meal.weekend.revenue),
-                `${num(meal.weekend.customers, 1)} 人`,
-              ])}
-            />
+          {result.mealSum <= 0 ? (
+            <Callout tone="warn">午餐、晚餐、其他都是 0，沒有辦法拆時段。</Callout>
           ) : (
-            <Callout tone="warn">午餐、晚餐、其他現在加總 {num(result.mealSum, 1)}%，要等於 100% 才拆時段。每天的營業額仍然算得出來。</Callout>
+            <>
+              {!result.mealsOk ? (
+                <Callout tone="warn">
+                  三個時段加總是 {num(result.mealSum, 1)}%，不是 100%。下面先照你填的比例換算，讓整天還是分得完。要精準就改成加總 100。
+                </Callout>
+              ) : null}
+              <SplitTable
+                title="時段"
+                headers={["時段", "占比", "平日營業額", "平日人數", "週末營業額", "週末人數"]}
+                rows={result.meals.map((meal) => [
+                  meal.label,
+                  `${num(meal.pct, 1)}%`,
+                  ntd(meal.weekday.revenue),
+                  `${num(meal.weekday.customers, 1)} 人`,
+                  ntd(meal.weekend.revenue),
+                  `${num(meal.weekend.customers, 1)} 人`,
+                ])}
+              />
+            </>
           )}
 
-          {result.mixOk ? (
-            <SplitTable
-              title="客人從哪來"
-              headers={["來源", "占比", "一個月大約幾位"]}
-              rows={result.mix.map((part) => [part.label, `${num(part.pct, 0)}%`, `${num(part.customers, 1)} 人`])}
-            />
+          {result.mixSum <= 0 ? (
+            <Callout tone="warn">回購、介紹、新客都是 0，沒有辦法拆來源。</Callout>
           ) : (
-            <Callout tone="warn">回購、介紹、新客現在加總 {num(result.mixSum, 1)}%，要等於 100% 才拆來源。</Callout>
+            <>
+              {!result.mixOk ? (
+                <Callout tone="warn">
+                  三個來源加總是 {num(result.mixSum, 1)}%，不是 100%。下面先照比例換算。要精準就改成加總 100。
+                </Callout>
+              ) : null}
+              <SplitTable
+                title="客人從哪來"
+                headers={["來源", "占比", "一個月大約幾位"]}
+                rows={result.mix.map((part) => [part.label, `${num(part.pct, 1)}%`, `${num(part.customers, 1)} 人`])}
+              />
+            </>
           )}
         </>
       )}

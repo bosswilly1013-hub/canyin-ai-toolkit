@@ -85,15 +85,23 @@ export function splitTarget(input: TargetInput): TargetResult | { error: string 
     mealSum,
     mixOk,
     mixSum,
-    meals: mealDefs.map((meal) => ({
-      ...meal,
-      weekday: daySplit(weekdayRevenue * (meal.pct / 100), input.avgTicket),
-      weekend: daySplit(weekendRevenue * (meal.pct / 100), input.avgTicket),
-    })),
-    mix: mixDefs.map((part) => ({
-      ...part,
-      customers: monthlyCustomers == null ? null : monthlyCustomers * (part.pct / 100),
-    })),
+    meals: mealDefs.map((meal) => {
+      const share = mealSum > 0 ? meal.pct / mealSum : 0;
+      return {
+        ...meal,
+        pct: share * 100,
+        weekday: daySplit(weekdayRevenue * share, input.avgTicket),
+        weekend: daySplit(weekendRevenue * share, input.avgTicket),
+      };
+    }),
+    mix: mixDefs.map((part) => {
+      const share = mixSum > 0 ? part.pct / mixSum : 0;
+      return {
+        ...part,
+        pct: share * 100,
+        customers: monthlyCustomers == null ? null : monthlyCustomers * share,
+      };
+    }),
     checkRevenue: weekdayRevenue * input.weekdays + weekendRevenue * input.weekendDays,
   };
 }

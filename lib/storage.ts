@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 
 const listeners = new Map<string, Set<() => void>>();
+const memory = new Map<string, unknown>();
 
 function readKey(key: string): string | null {
   try {
@@ -26,7 +27,10 @@ export function usePersisted<T>(key: string, initial: T) {
       }
       bucket.add(onChange);
       const onStorage = (event: StorageEvent) => {
-        if (event.key === key || event.key === null) onChange();
+        if (event.key === key || event.key === null) {
+          memory.delete(key);
+          onChange();
+        }
       };
       window.addEventListener("storage", onStorage);
       return () => {
@@ -46,13 +50,20 @@ export function usePersisted<T>(key: string, initial: T) {
       value = initial;
     }
   }
-
-  function setValue(next: T) {
-    localStorage.setItem(key, JSON.stringify(next));
+  function setValue(next: T | ((current: T) => T)) {
+    const current = (memory.has(key) ? memory.get(key) : value) as T;
+    const resolved = typeof next === "function" ? (next as (current: T) => T)(current) : next;
+    memory.set(key, resolved);
+    try {
+      localStorage.setItem(key, JSON.stringify(resolved));
+    } catch {
+      // Private mode or a full disk: keep the number on screen anyway.
+    }
     notify(key);
   }
 
   function reset() {
+    memory.delete(key);
     localStorage.removeItem(key);
     notify(key);
   }

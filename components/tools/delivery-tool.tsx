@@ -9,7 +9,7 @@ import {
   quoteDelivery,
   type DeliveryInput,
 } from "@/lib/calc/delivery";
-import { toCsv } from "@/lib/csv";
+import { decodeCsvBytes, toCsv } from "@/lib/csv";
 import { downloadText, downloadXlsx } from "@/lib/download";
 import { ntd, num, pct } from "@/lib/format";
 import { usePersisted } from "@/lib/storage";
@@ -32,6 +32,7 @@ export function DeliveryTool() {
   const { value, setValue, reset, fromStorage } = usePersisted("lazykit.v1.delivery", initial);
   const single = value.single;
   const [fileName, setFileName] = useState("");
+  const [encodingNote, setEncodingNote] = useState("");
   const quote = quoteDelivery(single);
   const parsed = useMemo(() => parseMenuCsv(value.batchText, single), [value.batchText, single]);
 
@@ -41,6 +42,7 @@ export function DeliveryTool() {
 
   async function onFile(file: File) {
     setFileName(file.name);
+    setEncodingNote("");
     const name = file.name.toLowerCase();
     if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
       const XLSX = await import("xlsx");
@@ -61,7 +63,9 @@ export function DeliveryTool() {
       setValue({ ...value, batchText: toCsv([header, ...body]).replace(/^\uFEFF/, "") });
       return;
     }
-    setValue({ ...value, batchText: await file.text() });
+    const decoded = decodeCsvBytes(new Uint8Array(await file.arrayBuffer()));
+    setEncodingNote(decoded.encoding === "big5" ? "這個 CSV 是 Big5（Excel 常見），已轉成看得到的中文。" : "");
+    setValue({ ...value, batchText: decoded.text });
   }
 
   function downloadResults() {
@@ -94,9 +98,9 @@ export function DeliveryTool() {
     <div className="space-y-4">
       <StorageNote fromStorage={fromStorage} onReset={reset} />
       <div className="grid gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-3">
-        <NumberField label="平台抽成" suffix="%" value={single.commissionPct} onChange={(next) => setSingle("commissionPct", next)} hint="填 35 代表 35%，以合約為準" />
-        <NumberField label="每單平台費" suffix="元" value={single.platformFee} onChange={(next) => setSingle("platformFee", next)} hint="沒有就填 0" />
-        <NumberField label="目標實收毛利率" suffix="%" value={single.targetMarginPct} onChange={(next) => setSingle("targetMarginPct", next)} hint="扣完抽成後，實收裡想留下的比例" />
+        <NumberField label="平台抽成" suffix="%" min={0} max={100} value={single.commissionPct} onChange={(next) => setSingle("commissionPct", next)} hint="填 35 代表 35%，以合約為準。100 代表平台全拿走" />
+        <NumberField label="每單平台費" suffix="元" min={0} max={1e12} value={single.platformFee} onChange={(next) => setSingle("platformFee", next)} hint="沒有就填 0" />
+        <NumberField label="目標實收毛利率" suffix="%" min={0} max={99} value={single.targetMarginPct} onChange={(next) => setSingle("targetMarginPct", next)} hint="扣完抽成後，實收裡想留下的比例，要小於 100" />
       </div>
 
       <Tabs defaultValue="single">
@@ -111,9 +115,9 @@ export function DeliveryTool() {
                 <Label>品項</Label>
                 <Input value={single.name} onValueChange={(next) => setSingle("name", next)} />
               </div>
-              <NumberField label="店內售價" suffix="元" value={single.inStorePrice} onChange={(next) => setSingle("inStorePrice", next)} />
-              <NumberField label="食材成本" suffix="元" value={single.foodCost} onChange={(next) => setSingle("foodCost", next)} />
-              <NumberField label="包材" suffix="元" value={single.packaging} onChange={(next) => setSingle("packaging", next)} hint="外帶盒、餐具、袋子" />
+              <NumberField label="店內售價" suffix="元" min={0} max={1e12} value={single.inStorePrice} onChange={(next) => setSingle("inStorePrice", next)} />
+              <NumberField label="食材成本" suffix="元" min={0} max={1e12} value={single.foodCost} onChange={(next) => setSingle("foodCost", next)} />
+              <NumberField label="包材" suffix="元" min={0} max={1e12} value={single.packaging} onChange={(next) => setSingle("packaging", next)} hint="外帶盒、餐具、袋子" />
             </div>
             <QuotePanel quote={quote} input={single} />
           </div>
@@ -167,6 +171,7 @@ export function DeliveryTool() {
             <Label htmlFor="menu-paste">或直接貼上</Label>
             <Textarea id="menu-paste" className="min-h-40 font-mono text-xs" value={value.batchText} onChange={(event) => setValue({ ...value, batchText: event.target.value })} />
           </div>
+          {encodingNote ? <Callout tone="good">{encodingNote}</Callout> : null}
           {parsed.decimalCommissionWarning ? (
             <Callout tone="warn">抽成欄裡的數字都小於或等於 1。若 0.35 代表 35%，請改成 35。</Callout>
           ) : null}

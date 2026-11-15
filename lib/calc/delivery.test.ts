@@ -15,6 +15,24 @@ describe("delivery pricing", () => {
     assert.ok((quote.inStore?.marginOnNet ?? 1) < exampleDelivery.targetMarginPct / 100);
   });
 
+  it("prices a second dish by hand, including a per-order fee", () => {
+    const quote = quoteDelivery({
+      name: "便當",
+      inStorePrice: 100,
+      foodCost: 40,
+      packaging: 5,
+      commissionPct: 30,
+      platformFee: 10,
+      targetMarginPct: 50,
+    });
+    assert.equal(quote.ok, true);
+    if (!quote.ok) return;
+    assert.ok(Math.abs(quote.exactPrice - 142.857) < 0.01);
+    assert.equal(quote.suggestedPrice, 150);
+    assert.ok(Math.abs(quote.quote.net - 95) < 0.01);
+    assert.ok(Math.abs(quote.quote.leftover - 50) < 0.01);
+  });
+
   it("rounds up to the next 10 dollars and leaves an exact ten alone", () => {
     assert.equal(roundUpToStep(218.8, 10), 220);
     assert.equal(roundUpToStep(220, 10), 220);

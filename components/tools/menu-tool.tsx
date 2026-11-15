@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
 import { classifyMenu, costDish, exampleDishes, ingredientCost, quadrantCopy, type Dish, type Ingredient } from "@/lib/calc/menu";
+import { parseLooseNumber } from "@/lib/csv";
 import { ntd, num, pct } from "@/lib/format";
 import { uid } from "@/lib/id";
 import { usePersisted } from "@/lib/storage";
@@ -41,9 +42,9 @@ export function MenuTool() {
   return (
     <div className="space-y-4">
       <StorageNote fromStorage={fromStorage} onReset={() => { reset(); setActive(exampleDishes[0].id); }} />
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-wrap gap-2">
         {dishes.map((dish) => (
-          <Button key={dish.id} type="button" variant={dish.id === current?.id ? "default" : "outline"} className="h-11" onClick={() => setActive(dish.id)}>
+          <Button key={dish.id} type="button" variant={dish.id === current?.id ? "default" : "outline"} className="h-auto min-h-11 max-w-full min-w-0 whitespace-normal px-3 py-2 text-left break-words" onClick={() => setActive(dish.id)}>
             {dish.name}
           </Button>
         ))}
@@ -68,13 +69,15 @@ export function MenuTool() {
           <div className="space-y-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1.5 sm:col-span-3">
-                <Label>餐點名稱</Label>
-                <Input value={current.name} onValueChange={(next) => updateDish(current.id, (dish) => ({ ...dish, name: next }))} />
+                <Label htmlFor="dish-name">餐點名稱</Label>
+                <Input id="dish-name" className="min-w-0" value={current.name} onValueChange={(next) => updateDish(current.id, (dish) => ({ ...dish, name: next.slice(0, 40) }))} />
               </div>
-              <NumberField label="售價" suffix="元" value={current.price} onChange={(next) => updateDish(current.id, (dish) => ({ ...dish, price: next }))} />
+              <NumberField label="售價" suffix="元" min={0} max={1e12} value={current.price} onChange={(next) => updateDish(current.id, (dish) => ({ ...dish, price: next }))} />
               <NumberField
                 label="一個月大約賣"
                 suffix="份"
+                min={0}
+                max={1000000}
                 value={current.monthlyQty ?? 0}
                 onChange={(next) => updateDish(current.id, (dish) => ({ ...dish, monthlyQty: next > 0 ? next : null }))}
                 hint="填 0 代表先不分象限"
@@ -108,7 +111,19 @@ export function MenuTool() {
               >
                 加原料
               </Button>
-              <p className="text-xs leading-5 text-muted-foreground">單位要對齊。用量 0.12 公斤，單位成本就填這一公斤多少錢。</p>
+              <p className="text-xs leading-5 text-muted-foreground">單位要對齊。用量 0.12 公斤，單位成本就填這一公斤多少錢。單價可以打 1,200。</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={() => {
+                  const next = dishes.filter((dish) => dish.id !== current.id);
+                  setValue({ dishes: next });
+                  setActive(next[0]?.id ?? "");
+                }}
+              >
+                刪掉這道
+              </Button>
             </div>
           </div>
           <DishResult dish={current} />
@@ -213,9 +228,9 @@ function DecimalCell({ value, onChange, label }: { value: number; onChange: (val
       onBlur={() => setFocused(false)}
       onValueChange={(next) => {
         setText(next);
-        if (next.trim() === "" || next === "-" || next === "." || next.endsWith(".")) return;
-        const parsed = Number(next);
-        if (Number.isFinite(parsed)) onChange(parsed);
+        if (next.trim() === "" || next === "-" || next === "." || /[.,，]$/.test(next)) return;
+        const parsed = parseLooseNumber(next);
+        if (parsed != null && parsed >= 0) onChange(parsed);
       }}
     />
   );

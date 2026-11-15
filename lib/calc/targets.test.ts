@@ -18,11 +18,16 @@ describe("target split", () => {
     assert.ok(Math.abs((fresh?.customers ?? 0) - 681.818181) < 0.01);
   });
 
-  it("holds the meal split when the percents are not 100", () => {
+  it("still splits the day when meal percents are not 100, using their ratio", () => {
     const result = splitTarget({ ...exampleTargets, otherPct: 0 });
     assert.ok(!("error" in result));
     if ("error" in result) return;
     assert.equal(result.mealsOk, false);
-    assert.equal(result.weekday.revenue > 0, true);
+    assert.equal(result.mealSum, 95);
+    const lunch = result.meals.find((meal) => meal.key === "lunch");
+    assert.ok(lunch);
+    assert.ok(Math.abs(lunch.weekday.revenue - result.weekday.revenue * (45 / 95)) < 0.01);
+    const share = result.meals.reduce((sum, meal) => sum + meal.weekday.revenue, 0);
+    assert.ok(Math.abs(share - result.weekday.revenue) < 0.01);
   });
 });

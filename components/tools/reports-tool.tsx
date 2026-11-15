@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactElement } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { parseCsv, parseLooseNumber, toCsv } from "@/lib/csv";
+import { decodeCsvBytes, parseCsv, parseLooseNumber, toCsv } from "@/lib/csv";
 import { downloadText, downloadXlsx } from "@/lib/download";
 import { ntd, num, pct, signedNtd } from "@/lib/format";
 import {
@@ -29,6 +29,7 @@ export function ReportsTool() {
   const [mapping, setMapping] = useState<Partial<Record<ColumnRole, number>>>({});
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
+  const [encodingNote, setEncodingNote] = useState("");
   const [source, setSource] = useState<"範例日報" | "你的檔案" | "範例損益表">("範例日報");
   const [pnlMode, setPnlMode] = useState(false);
 
@@ -79,6 +80,7 @@ export function ReportsTool() {
 
   async function onFile(file: File) {
     setError("");
+    setEncodingNote("");
     setFileName(file.name);
     try {
       const lower = file.name.toLowerCase();
@@ -90,7 +92,9 @@ export function ReportsTool() {
         const raw = XLSX.utils.sheet_to_json(first, { header: 1, raw: true, defval: "" }) as unknown[][];
         rows = raw.map((row) => row.map((cell) => (cell == null ? "" : String(cell))));
       } else {
-        rows = parseCsv(await file.text());
+        const decoded = decodeCsvBytes(new Uint8Array(await file.arrayBuffer()));
+        setEncodingNote(decoded.encoding === "big5" ? "這個 CSV 是 Big5，已轉成看得到的中文。" : "");
+        rows = parseCsv(decoded.text);
       }
       if (rows.length < 2) {
         setError("至少要有標題列和一列資料。");
@@ -107,7 +111,7 @@ export function ReportsTool() {
         setError("沒有自動對到營業額或金額。請用下面的欄位對應改一下。");
       }
     } catch {
-      setError("這個檔案讀不起來。請改用 CSV（UTF-8）或 xlsx。");
+      setError("這個檔案讀不起來。請改存成 xlsx，或 CSV（UTF-8、Big5 都可以）。");
     }
   }
 
@@ -170,6 +174,7 @@ export function ReportsTool() {
           }}
         />
       </div>
+      {encodingNote ? <Callout tone="good">{encodingNote}</Callout> : null}
       {error ? <Callout tone="warn">{error}</Callout> : null}
 
       {sheet && source === "你的檔案" ? (

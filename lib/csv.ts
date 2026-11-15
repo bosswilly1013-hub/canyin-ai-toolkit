@@ -50,9 +50,18 @@ export function toCsv(rows: (string | number)[][]): string {
   return `\uFEFF${body}`;
 }
 
+/** UTF-8 first. Excel in Traditional Chinese Windows often saves CSV as Big5. */
+export function decodeCsvBytes(bytes: Uint8Array): { text: string; encoding: "utf-8" | "big5" } {
+  try {
+    return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), encoding: "utf-8" };
+  } catch {
+    return { text: new TextDecoder("big5").decode(bytes), encoding: "big5" };
+  }
+}
+
 export function parseLooseNumber(value: string): number | null {
-  const trimmed = value.trim().replace(/[元$＄]/g, "").replace(/[,，\s]/g, "");
-  if (!trimmed || trimmed === "-") return null;
+  const trimmed = value.trim().replace(/[元$＄%％]/g, "").replace(/[,，\s]/g, "");
+  if (!trimmed || trimmed === "-" || trimmed === "." || trimmed === "-.") return null;
   const negative = /^\(.*\)$/.test(trimmed);
   const numeric = negative ? trimmed.slice(1, -1) : trimmed;
   const parsed = Number(numeric);

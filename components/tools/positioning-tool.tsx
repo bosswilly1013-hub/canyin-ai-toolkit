@@ -44,10 +44,10 @@ export function PositioningTool() {
   const plotRef = useRef<HTMLDivElement>(null);
 
   function move(id: string, x: number, y: number) {
-    setValue({
-      ...value,
-      dots: value.dots.map((dot) => (dot.id === id ? { ...dot, x: clamp(x), y: clamp(y) } : dot)),
-    });
+    setValue((current) => ({
+      ...current,
+      dots: current.dots.map((dot) => (dot.id === id ? { ...dot, x: clamp(x), y: clamp(y) } : dot)),
+    }));
   }
 
   function onPointerDown(event: ReactPointerEvent, id: string) {
@@ -151,6 +151,24 @@ export function PositioningTool() {
               className="absolute -translate-x-1/2 translate-y-1/2 cursor-grab touch-none"
               style={{ left: `${dot.x}%`, bottom: `${dot.y}%` }}
               onPointerDown={(event) => onPointerDown(event, dot.id)}
+              onKeyDown={(event) => {
+                const step = event.shiftKey ? 5 : 2;
+                const delta: Record<string, [number, number]> = {
+                  ArrowRight: [step, 0],
+                  ArrowLeft: [-step, 0],
+                  ArrowUp: [0, step],
+                  ArrowDown: [0, -step],
+                };
+                const moveBy = delta[event.key];
+                if (!moveBy) return;
+                event.preventDefault();
+                setValue((current) => ({
+                  ...current,
+                  dots: current.dots.map((item) =>
+                    item.id === dot.id ? { ...item, x: clamp(item.x + moveBy[0]), y: clamp(item.y + moveBy[1]) } : item,
+                  ),
+                }));
+              }}
             >
               <span className={`mx-auto block rounded-full ${dot.mine ? "size-4 bg-primary" : "size-3 bg-[#1d3c34]"}`} />
               <span className="mt-1 block max-w-28 rounded-md bg-white/90 px-1.5 py-0.5 text-xs shadow-sm">{dot.name}</span>
@@ -163,6 +181,7 @@ export function PositioningTool() {
           <span>{value.xHigh}</span>
         </div>
         <p className="mt-1 text-right text-xs text-muted-foreground">{value.yLow}</p>
+        <p className="mt-2 text-xs text-muted-foreground">點選一家店後，用方向鍵移動。Shift 加方向鍵一次移動多一點。</p>
       </div>
       <div className="space-y-2">
         {value.dots.map((dot) => (
