@@ -458,23 +458,7 @@ function HomeView(props: {
           </section>
         </div>
       </section>
-      {query.trim() ? (
-        <section className="layout" id="library">
-          <div />
-          <div>
-            <p className="hits">找到 <b>{hits.length}</b> 筆</p>
-            <div className="grid">
-              {hits.map(({ article, snippet }) => (
-                <a key={article.slug} className="card" href={`/#/c/${article.slug}`}>
-                  <span className={`thumb cover-${article.category}`}><small>{articleKind(article)}</small></span>
-                  <span className="body"><span className="tag">{topics.find((topic) => topic.id === article.category)?.name}</span><h3>{highlight(article.title, query)}</h3><p className="snip">{highlight(snippet, query)}</p></span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : (
-        <div className="layout" id="library">
+      <div className="layout" id="library">
           <aside className={props.drawer ? "toc open" : "toc"} id="toc">
             <div className="side-card">
               <h4>分類</h4>
@@ -493,17 +477,51 @@ function HomeView(props: {
               })}
             </div>
             <div className="side-card">
+              <h4>目錄 <small>點主題展開</small></h4>
+              {topics.map((topic) => {
+                const list = articles.filter((article) => article.category === topic.id);
+                const open = props.openCats[topic.id] === true;
+                return (
+                  <div key={topic.id} className={open ? "toc-cat open" : "toc-cat"}>
+                    <button type="button" className="toc-ct" onClick={() => props.setOpenCats({ ...props.openCats, [topic.id]: !open })}>
+                      <span className="nm">{topic.name}</span><span className="cnt">{list.length}</span><span className="car">▶</span>
+                    </button>
+                    {open ? list.map((article) => <a key={article.slug} className={props.seen.includes(article.slug) ? "toc-it read" : "toc-it"} href={`/#/c/${article.slug}`}>{article.title}</a>) : null}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="side-card">
               <h4>熱門排行</h4>
               <p className="tiny">基礎次數在 ranking.ts，加上你這台看過的次數。</p>
-              {ranked.map((article, index) => (
-                <a key={article.slug} className="hot-it" href={`/#/c/${article.slug}`}><span className="no">{index + 1}</span><span className="t">{article.title}</span><span className="v">{score(article.slug)}</span></a>
-              ))}
+              <div className="hot-list">
+                {ranked.map((article, index) => (
+                  <a key={article.slug} className="hot-it" href={`/#/c/${article.slug}`}><span className="no">{index + 1}</span><span className="t">{article.title}</span><span className="v">{score(article.slug)}</span></a>
+                ))}
+              </div>
             </div>
             <div className="side-card">
               <a className="me-card" href="/#/about"><img src="/member/willy.jpg" alt="" /><div><b>認識 Willy</b><span>開店 19 年，為什麼做這個站</span><span className="go">讀 Willy 的故事 →</span></div></a>
             </div>
           </aside>
           <div className="main">
+            {query.trim() ? (
+              <>
+                <p className="hits">找到 <b>{hits.length}</b> 筆</p>
+                <div className="grid">
+                  {hits.map(({ article, snippet }) => (
+                    <a key={article.slug} className="card" href={`/#/c/${article.slug}`}>
+                      <span className={`thumb cover-${article.category}`}><small>{articleKind(article)}</small></span>
+                      <span className="body">
+                        <span className="tag">{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
+                        <h3>{highlight(article.title, query)}</h3>
+                        <p className="snip">{highlight(snippet, query)}</p>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            ) : (<>
             <div className="cats">
               <button type="button" className={filter === "path" ? "cat on" : "cat"} onClick={() => setFilter("path")}>新手入門</button>
               <button type="button" className={filter === "new" ? "cat on" : "cat"} onClick={() => setFilter("new")}>最新更新</button>
@@ -527,47 +545,63 @@ function HomeView(props: {
               <section id="downloads">
                 <div className="sec-head"><h2>下載區</h2><p>表、網頁工具、提示詞。網頁工具的數字留在這台裝置。</p></div>
                 <div className="cats">
-                  <button type="button" className={fileKind === "全部" ? "cat on" : "cat"} onClick={() => setFileKind("全部")}>全部 {downloads.length}</button>
-                  {downloadKinds.map((kind) => <button type="button" key={kind} className={fileKind === kind ? "cat on" : "cat"} onClick={() => setFileKind(kind)}>{kind} {downloads.filter((file) => file.kind === kind).length}</button>)}
+                  <button type="button" className={fileKind === "全部" ? "cat on" : "cat"} onClick={() => setFileKind("全部")}>全部 <span>{downloads.length}</span></button>
+                  {downloadKinds.map((kind) => <button type="button" key={kind} className={fileKind === kind ? "cat on" : "cat"} onClick={() => setFileKind(kind)}>{kind === "原始碼" ? "skill・原始碼" : kind === "HTML工具" ? "HTML 工具" : kind} <span>{downloads.filter((file) => file.kind === kind).length}</span></button>)}
                 </div>
-                <div className="dlbox">
-                  {files.map((file) => (
-                    <div key={file.href} className="dlr">
-                      <div className="info"><b>{file.name}</b><span>{file.description} · {formatBytes(file.bytes)}</span><a href={`/#/c/${file.article}`}>出自：{props.bySlug[file.article]?.title}</a></div>
-                      <a className="get" href={file.href} download>下載</a>
-                      {file.open ? <a className="get ghost" href={file.open}>線上直接用</a> : null}
+                {topics.filter((topic) => files.some((file) => file.topic === topic.id)).map((topic) => (
+                  <section key={topic.id} className="sec">
+                    <h3 className="sec-t">{topic.name}<span className="cnt">{files.filter((file) => file.topic === topic.id).length}</span></h3>
+                    <div className="dlbox">
+                      {files.filter((file) => file.topic === topic.id).map((file) => (
+                        <div key={file.href} className="dlr">
+                          <div className="info"><b>{file.name}</b><span>{file.description} · {formatBytes(file.bytes)}</span><a href={`/#/c/${file.article}`}>出自：{props.bySlug[file.article]?.title}</a></div>
+                          <a className="get" href={file.href} download>下載</a>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </section>
+                ))}
               </section>
             ) : (
               <>
                 <div className="sec-head" id="new">
                   <h2>{filter === "all" ? "全部內容" : filter === "new" ? "最新更新" : filter === "path" ? "新手入門" : topics.find((topic) => topic.id === filter)?.name}</h2>
-                  <p>{filter === "all" || filter === "new" || filter === "path" ? "先看步驟，再挑一篇打開。" : topics.find((topic) => topic.id === filter)?.blurb}</p>
+                  <p>{filter === "new" ? `近 30 天 ${props.monthCount} 篇，兩週內 ${props.newest.length} 篇` : filter === "all" || filter === "path" ? "先看步驟，再挑一篇打開。" : topics.find((topic) => topic.id === filter)?.blurb}</p>
                 </div>
-                <div className="grid">
-                  {visible.map((article, index) => (
-                    <a key={article.slug} className={props.seen.includes(article.slug) ? "card read" : "card"} href={`/#/c/${article.slug}`}>
-                      <span className={`thumb cover-${article.category}`}>
-                        {filter !== "all" && filter !== "new" ? <span className="step">STEP {index + 1}</span> : null}
-                        <span className="seen">✓ 看過</span>
-                        <small>{articleKind(article)}{isNew(article.date) ? " · 新" : ""}</small>
-                      </span>
-                      <span className="body">
-                        <span className="tag">{topics.find((topic) => topic.id === article.category)?.name} · {article.minutes} 分鐘</span>
-                        <h3>{article.title}</h3>
-                        <p className="desc">{article.summary}</p>
-                      </span>
-                    </a>
-                  ))}
-                </div>
+                {topics.filter((topic) => filter === topic.id).length ? visible.reduce<{ sub: string; items: Article[] }[]>((groups, article) => {
+                  const found = groups.find((group) => group.sub === article.sub);
+                  if (found) found.items.push(article);
+                  else groups.push({ sub: article.sub, items: [article] });
+                  return groups;
+                }, []).map((group) => (
+                  <section key={group.sub} className="sec">
+                    <h3 className="sec-t">{subEmoji[group.sub] || "•"} {group.sub}<span className="cnt">{group.items.length}</span></h3>
+                    <div className="grid">{group.items.map((article, index) => <ArticleCard key={article.slug} article={article} seen={props.seen.includes(article.slug)} step={index + 1} />)}</div>
+                  </section>
+                )) : <div className="grid">{visible.map((article) => <ArticleCard key={article.slug} article={article} seen={props.seen.includes(article.slug)} />)}</div>}
               </>
             )}
+            </>)}
           </div>
         </div>
-      )}
     </>
+  );
+}
+function ArticleCard({ article, seen, step }: { article: Article; seen: boolean; step?: number }) {
+  return (
+    <a className={seen ? "card read" : "card"} href={`/#/c/${article.slug}`}>
+      <span className={`thumb cover-${article.category}`}>
+        {step ? <span className="step">STEP {step}</span> : null}
+        {isNew(article.date) ? <span className="nw">新</span> : null}
+        <span className="seen">✓ 看過</span>
+        <small>{articleKind(article)}</small>
+      </span>
+      <span className="body">
+        <span className="tag">{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
+        <h3>{article.title}</h3>
+        <p className="desc">{article.summary}</p>
+      </span>
+    </a>
   );
 }
 function highlight(text: string, query: string) {
@@ -611,19 +645,29 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
   const events = EVENTS.filter((event) => kind === "全部" || event.kind === kind);
   const systems = SYSTEMS.filter((item) => systemKind === "全部" || item.kind === systemKind);
   return (
-    <div className="read">
-      <h1>AI 歷程</h1>
-      <p>從 {aiStartDate} 起，{daysSince(aiStartDate)} 天。系統 {SYSTEMS.length} 套。</p>
-      <nav className="chips">
-        <Link href="/journey">系統里程</Link>
-        <Link href="/journey/footprint">數位足跡</Link>
-        <Link href="/journey/subs">訂閱成長</Link>
+    <div className="journey">
+      <div className="j-intro">
+        <h1>AI 歷程</h1>
+        <p>從 {aiStartDate} 起，用 AI 看店 {daysSince(aiStartDate)} 天。系統 {SYSTEMS.length} 套，其中公司 {SYSTEMS.filter((item) => item.kind === "公司").length}、個人 {SYSTEMS.filter((item) => item.kind === "個人").length}。</p>
+      </div>
+      <section className="dash">
+        <div className="dash-grid">
+          <div><small>用 AI 看店</small><strong>{daysSince(aiStartDate)} 天</strong></div>
+          <div><small>系統</small><strong>{SYSTEMS.length} 套</strong></div>
+          <div><small>做過的事</small><strong>{EVENTS.length} 件</strong></div>
+          <div><small>訂閱人數</small><strong>{last}</strong></div>
+        </div>
+      </section>
+      <nav className="jtabs">
+        <a className={tab === "milestone" ? "on" : ""} href="/#/journey">系統里程</a>
+        <a className={tab === "footprint" ? "on" : ""} href="/#/journey/footprint">數位足跡</a>
+        <a className={tab === "subs" ? "on" : ""} href="/#/journey/subs">訂閱成長</a>
       </nav>
       {tab === "milestone" ? (
         <>
           <div className="chart">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={months}><XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#e15a2b" /></BarChart>
+              <BarChart data={months}><XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#C3F000" /></BarChart>
             </ResponsiveContainer>
           </div>
           <div className="chips">
@@ -646,7 +690,7 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
           <p>現在 {last} 人。從第一筆到現在增加 {last - first} 人。平均一天約 {((last - first) / days).toFixed(2)} 人。</p>
           <div className="chart">
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={SUBS}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line dataKey="count" stroke="#e15a2b" dot={false} /></LineChart>
+              <LineChart data={SUBS}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line dataKey="count" stroke="#C3F000" dot={false} /></LineChart>
             </ResponsiveContainer>
           </div>
           <div className="chart">
@@ -665,22 +709,39 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
 
 function About() {
   return (
-    <div className="read">
-      <h1>認識 Willy</h1>
-      <img src="/member/willy.jpg" alt="Willy 在廚房" style={{ width: 160, borderRadius: "50%" }} />
-      <p>Willy · 久沃餐飲 · 開店 19 年</p>
-      <div className="stats">
-        <div><b>19</b><span>年</span></div>
-        <div><b>多店</b><span>從一間麵店開始</span></div>
-        <div><b>{apps.length}</b><span>套店裡在用的工具</span></div>
+    <section className="about">
+      <a className="back" href="/#/">← 回到內容</a>
+      <div className="box">
+        <div className="ab-hero">
+          <img src="/member/willy.jpg" alt="Willy 在廚房" />
+          <div>
+            <span className="tg">久沃餐飲</span>
+            <h3>嗨，我是 <span>Willy</span></h3>
+            <p>店從一間麵店開始，後來才有第二間、中央廚房，和要不要把早班表複製到下一間店的問題。</p>
+          </div>
+        </div>
+        <div className="ab-stats">
+          <div><b>19 年</b><span>開店</span></div>
+          <div><b>多店</b><span>從一間開始</span></div>
+          <div><b>{apps.length} 套</b><span>店裡在用的工具</span></div>
+          <div><b>{SYSTEMS.length}</b><span>系統里程</span></div>
+        </div>
+        <div className="ab-body">
+          <p>我把叫貨、班表、打烊四個數字做成打開就能用的表。數字留在你的裝置，不上傳。</p>
+          <p>教材用繁體，例子是台灣的房租、外送抽成和驗收。一週只改一件事，改完才看下一個數字。</p>
+          <section id="letter" className="why-box">
+            <div className="k">初衷</div>
+            <h5>為什麼做這個站</h5>
+            <p className="hl">{founderQuote}</p>
+            <p>先把店算清楚，再談要不要用 AI。這裡寫的是我自己在用的做法，不是課程大綱。</p>
+            <p className="sign">Willy · 久沃餐飲</p>
+          </section>
+          <div className="ab-cta">
+            <a className="p" href="/#/">回教材</a>
+            <a className="s" href="/systems/">看全部工具</a>
+          </div>
+        </div>
       </div>
-      <p>店從一間麵店開始，後來才有第二間、中央廚房和加盟要不要複製的問題。這站寫我實際在用的表，不是課程大綱。</p>
-      <section id="letter" className="card">
-        <h2>為什麼做這個站</h2>
-        <p>{founderQuote}</p>
-        <p>先把叫貨、班表、打烊數字做成打開就能用的工具，再把做法寫給同業。這裡不賣別人的帳號，也不把你的表上傳。</p>
-      </section>
-      <p><Link href="/systems">看全部工具</Link> · <Link href="/pricing">訂閱說明</Link></p>
-    </div>
+    </section>
   );
 }
