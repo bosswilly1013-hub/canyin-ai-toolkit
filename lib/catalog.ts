@@ -1,4 +1,4 @@
-import { gaps, systems } from "@/lib/systems";
+import { apps } from "@/lib/apps";
 
 export type CategoryId = "startup" | "cost" | "ops" | "brand" | "ai" | "external";
 
@@ -523,7 +523,7 @@ export const resources: ExternalResource[] = [
 ];
 
 export type SearchHit = {
-  kind: "系統" | "自製中" | "工具" | "文章";
+  kind: "系統" | "工具" | "文章";
   title: string;
   href: string;
   excerpt: string;
@@ -546,19 +546,12 @@ export function searchHits(query: string): SearchHit[] {
       excerpt: guide.summary,
       haystack: [guide.title, guide.summary, guide.paragraphs.join(" "), guide.keywords.join(" ")].join(" "),
     })),
-    ...systems.map((system) => ({
+    ...apps.map((app) => ({
       kind: "系統" as const,
-      title: system.name,
-      href: system.slug === "procurement" ? "/order-system" : `/systems/${system.slug}`,
-      excerpt: system.pain,
-      haystack: [system.name, system.category, system.pain, system.dataIn, system.example].join(" "),
-    })),
-    ...gaps.map((gap) => ({
-      kind: "自製中" as const,
-      title: gap.name,
-      href: `/building/${gap.slug}`,
-      excerpt: gap.pain,
-      haystack: [gap.name, gap.pain, gap.why, "自製中"].join(" "),
+      title: app.name,
+      href: `/systems/${app.id}`,
+      excerpt: app.help,
+      haystack: [app.name, app.help, app.upload].join(" "),
     })),
     {
       kind: "文章",

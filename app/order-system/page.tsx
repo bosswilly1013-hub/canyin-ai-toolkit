@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { SystemArticle } from "@/components/system-article";
-import { getSystem } from "@/lib/systems";
+import { WorkApp } from "@/components/work-app";
 
-export const metadata: Metadata = {
-  title: "叫貨系統一鍵生成",
-  description: "上傳自己的叫貨 Excel，變成你的廠商、品項和叫貨系統。",
-};
+export const metadata: Metadata = { title: "叫貨", description: "看平常叫多少，寫今天的叫貨單，複製給廠商。" };
 
 export default function OrderSystemPage() {
-  const system = getSystem("procurement");
-  if (!system) notFound();
-  return <SystemArticle system={system} />;
+  return <WorkApp id="orders" />;
 }

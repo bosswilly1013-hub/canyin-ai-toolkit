@@ -30,7 +30,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2">
         跳到內容
       </a>
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-[#f4efe6]/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-[#f4efe6]/90 backdrop-blur print:hidden">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
             <span className="grid size-8 place-items-center rounded-lg bg-primary text-sm text-primary-foreground">包</span>
@@ -55,14 +55,13 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       <main id="main" className="flex-1">
         {children}
       </main>
-      <footer className="border-t border-border/80 px-4 py-8 pb-24 md:pb-8">
+      <footer className="border-t border-border/80 px-4 py-8 pb-24 md:pb-8 print:hidden">
         <div className="mx-auto max-w-5xl text-sm leading-6 text-muted-foreground">
-          <p>試算結果用來判斷店要不要做、價要不要改，不是會計簽證，也不是法律意見。稅、勞健保、食安以主管機關公告為準。</p>
-          <p className="mt-2">久沃餐飲集團 · 餐飲 AI 懶人包。目前全部免費，不用登入。</p>
+          <p>數字用來幫忙看店，不是會計簽證，也不是法律意見。資料留在你的裝置裡，不會上傳。</p>
         </div>
       </footer>
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#fffdf8]/95 backdrop-blur md:hidden">
-        <div className="grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-[#fffdf8]/95 backdrop-blur md:hidden print:hidden">
+        <div className="grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
           {mobileLinks.map((link) => {
             const Icon = link.icon;
             const on = active(pathname, link.href);
