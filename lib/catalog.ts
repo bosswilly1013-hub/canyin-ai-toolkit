@@ -52,6 +52,15 @@ export type ToolInfo = {
 
 export const tools: ToolInfo[] = [
   {
+    slug: "order-system",
+    href: "/order-system",
+    name: "叫貨系統一鍵生成",
+    problem: "把你的叫貨 Excel 放進來，就變成你自己的廠商、品項和叫貨系統。",
+    answers: "上傳廠商、品項、單位、單價、數量、日期。先在瀏覽器看廠商清單和每月進貨金額，再部署到 Render，用同一份檔建立你的系統。",
+    category: "ops",
+    keywords: ["叫貨", "採購", "excel", "廠商", "品項", "進貨", "render"],
+  },
+  {
     slug: "break-even",
     href: "/tools/break-even",
     name: "損益兩平計算器",

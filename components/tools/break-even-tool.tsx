@@ -78,37 +78,44 @@ export function BreakEvenTool() {
               <Stat label="每天需要客人" value={`${num(selected.customersPerDay, 1)} 人`} hint={value.discountPct ? `比不打折多 ${num(selected.extraCustomersPerDay, 1)} 人` : "不打折"} />
             </div>
           )}
-
-          <div className="min-w-0 overflow-x-auto rounded-2xl bg-card ring-1 ring-foreground/10">
-            <p className="px-3 pt-3 text-xs text-muted-foreground sm:hidden">表格可以左右滑動。</p>
-            <table className="w-full min-w-[640px] text-left text-sm">
+        </div>
+      </div>
+          <div className="mt-4 min-w-0 overflow-x-auto rounded-2xl bg-card ring-1 ring-foreground/10">
+            <table className="w-full table-fixed text-left text-xs sm:text-sm">
+              <colgroup>
+                <col className="w-[12%]" />
+                <col className="w-[15%]" />
+                <col className="w-[16%]" />
+                <col className="w-[16%]" />
+                <col className="w-[17%]" />
+                <col className="w-[24%]" />
+              </colgroup>
               <thead className="text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">折扣</th>
-                  <th className="px-3 py-2 font-medium">客單價</th>
-                  <th className="px-3 py-2 font-medium">每人貢獻</th>
-                  <th className="px-3 py-2 font-medium">每天人數</th>
-                  <th className="px-3 py-2 font-medium">月兩平</th>
-                  <th className="px-3 py-2 font-medium">以你預估的人數</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal">折扣</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal">客單價</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal">每人貢獻</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal">每天人數</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal">月兩平</th>
+                  <th className="px-2 py-2 font-medium whitespace-normal leading-snug">以你預估的人數</th>
                 </tr>
               </thead>
               <tbody>
                 {result.table.map((row) => (
                   <tr key={row.discountPct} className={row.discountPct === value.discountPct ? "bg-accent" : "border-t border-border"}>
-                    <td className="num px-3 py-2">{row.discountPct}%</td>
-                    <td className="num px-3 py-2">{ntd(row.ticket)}</td>
-                    <td className="num px-3 py-2">{ntd(row.contributionPerGuest)}</td>
-                    <td className="num px-3 py-2">{row.customersPerDay == null ? "沒有兩平點" : `${num(row.customersPerDay, 1)} 人`}</td>
-                    <td className="num px-3 py-2">{ntd(row.monthlyRevenue)}</td>
-                    <td className="num px-3 py-2">{signedNtd(row.monthlyProfitAtExpected)}</td>
+                    <td className="num px-2 py-2">{row.discountPct}%</td>
+                    <td className="num px-2 py-2">{ntd(row.ticket)}</td>
+                    <td className="num px-2 py-2">{ntd(row.contributionPerGuest)}</td>
+                    <td className="num px-2 py-2">{row.customersPerDay == null ? "沒有兩平點" : `${num(row.customersPerDay, 1)} 人`}</td>
+                    <td className="num px-2 py-2">{ntd(row.monthlyRevenue)}</td>
+                    <td className="num px-2 py-2 whitespace-normal">{signedNtd(row.monthlyProfitAtExpected)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
 
+      <div className="mt-4 space-y-4">
       <Explain title="怎麼看結果">
         <p>
           不打折時，固定成本 {ntd(result.fixed)} ÷ 每位客人貢獻 {ntd(result.base.contributionPerGuest)} ＝ 一個月 {num(result.base.customersPerMonth, 1)} 人。
@@ -133,6 +140,7 @@ export function BreakEvenTool() {
           打折前先看人數補不補得回來。
         </p>
       </Explain>
+      </div>
     </div>
   );
 }

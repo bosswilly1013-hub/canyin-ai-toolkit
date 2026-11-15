@@ -43,7 +43,17 @@ export default function HomePage() {
         </aside>
       </section>
 
-      <div className="mx-auto max-w-5xl space-y-10 px-4 pb-16">
+      <div className="mx-auto max-w-5xl px-4">
+        <Link href="/order-system" className="block rounded-3xl bg-[#1d3c34] p-5 text-[#f4efe6]">
+          <p className="text-sm text-[#f4efe6]/70">現成系統</p>
+          <h2 className="mt-1 text-2xl font-semibold">叫貨系統一鍵生成</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#f4efe6]/80">
+            把你的叫貨 Excel 放進來，先看廠商、參考價和每月進貨金額，再部署成你自己的叫貨系統。
+          </p>
+        </Link>
+      </div>
+
+      <div className="mx-auto mt-10 max-w-5xl space-y-10 px-4 pb-16">
         {categories.map((category) => {
           const list = toolsIn(category.id);
           return (

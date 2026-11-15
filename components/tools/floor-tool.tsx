@@ -40,14 +40,20 @@ export function FloorTool() {
     const element = boardRef.current;
     if (!element) return;
     const fit = () => {
-      const byWidth = element.clientWidth / Math.max(value.widthM, 0.5);
-      const byHeight = 560 / Math.max(value.depthM, 0.5);
-      setPxPerM(Math.max(28, Math.min(byWidth, byHeight)));
+      const byWidth = (element.clientWidth - 24) / Math.max(value.widthM, 0.5);
+      // 地圖加上下方的走道提示要一起落在一個畫面裡，所以高度跟視窗走，不跟頁面總長走。
+      const maxH = Math.min(Math.round(window.innerHeight * 0.52), 460);
+      const byHeight = maxH / Math.max(value.depthM, 0.5);
+      setPxPerM(Math.max(16, Math.min(byWidth, byHeight)));
     };
     const observer = new ResizeObserver(fit);
     observer.observe(element);
+    window.addEventListener("resize", fit);
     fit();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", fit);
+    };
   }, [value.depthM, value.widthM]);
 
   function commit(next: FloorState) {
@@ -176,9 +182,9 @@ export function FloorTool() {
           下載 PNG
         </Button>
       </div>
-      <div ref={boardRef} className="overflow-x-auto rounded-2xl bg-card p-3 ring-1 ring-foreground/10">
+      <div ref={boardRef} className="relative overflow-hidden rounded-2xl bg-card p-3 pb-24 ring-1 ring-foreground/10">
         <div
-          className="relative border-2 border-[#1c1915] bg-[#fffdf8]"
+          className="relative mx-auto border-2 border-[#1c1915] bg-[#fffdf8]"
           style={{ width: value.widthM * pxPerM, height: value.depthM * pxPerM }}
         >
           {value.items.map((item) => (
@@ -213,23 +219,21 @@ export function FloorTool() {
             </button>
           ))}
         </div>
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20">
+          {report.issues.length === 0 ? (
+            <Callout tone="good">
+              {report.narrowest
+                ? `走道夠。最窄約 ${Math.round(report.narrowest.gapM * 100)} 公分（${report.narrowest.a}和${report.narrowest.b}）。`
+                : "目前沒有兩件東西正對形成走道。"}
+            </Callout>
+          ) : (
+            <Callout tone={report.issues[0].level === "overlap" ? "bad" : "warn"}>
+              {report.issues[0].message}
+              {report.issues.length > 1 ? ` 另外還有 ${report.issues.length - 1} 處。` : ""}
+            </Callout>
+          )}
+        </div>
       </div>
-      {report.narrowest ? (
-        <p className="text-sm">
-          最窄的走道約 {Math.round(report.narrowest.gapM * 100)} 公分，在{report.narrowest.a}和{report.narrowest.b}之間。
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">目前沒有兩件東西正對著、中間形成走道。把桌子排到同一排就會出現。</p>
-      )}
-      {report.issues.length === 0 ? (
-        <Callout tone="good">沒有重疊，也沒有窄於 75 公分的走道。把桌子拖近一點，就會看到警示。</Callout>
-      ) : (
-        report.issues.map((issue) => (
-          <Callout key={issue.message} tone={issue.level === "overlap" ? "bad" : "warn"}>
-            {issue.message}
-          </Callout>
-        ))
-      )}
       <div className="space-y-2">
         {value.items.map((item) => (
           <div key={item.id} className="flex flex-wrap items-center gap-2">

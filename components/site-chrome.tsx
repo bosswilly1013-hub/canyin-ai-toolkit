@@ -2,22 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Compass, Home, Search, Wrench } from "lucide-react";
+import { BookOpen, Home, Search, ShoppingCart, Wrench } from "lucide-react";
 import { cn } from "cn";
 
 const desktopLinks = [
-  { href: "/start", label: "新手入門" },
+  { href: "/order-system", label: "叫貨系統" },
   { href: "/tools", label: "全部工具" },
+  { href: "/start", label: "新手入門" },
   { href: "/guide", label: "懶人包導覽" },
   { href: "/search", label: "搜尋" },
-  { href: "/pricing", label: "方案" },
 ];
 
 const mobileLinks = [
   { href: "/", label: "首頁", icon: Home },
+  { href: "/order-system", label: "叫貨", icon: ShoppingCart },
   { href: "/tools", label: "工具", icon: Wrench },
   { href: "/search", label: "搜尋", icon: Search },
-  { href: "/guide", label: "導覽", icon: Compass },
   { href: "/start", label: "入門", icon: BookOpen },
 ];
 
