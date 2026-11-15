@@ -148,7 +148,7 @@ export function WorkApp({ id }: { id: AppId }) {
           />
         </label>
         <Button type="button" variant="outline" className="h-11" onClick={() => { store.reset(); setNotice("已清除這台裝置上的資料。"); }}>
-          清除資料
+          清空示範資料
         </Button>
         <Button type="button" variant="outline" className="h-11" onClick={() => window.print()}>
           列印

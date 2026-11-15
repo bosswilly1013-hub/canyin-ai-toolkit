@@ -10,6 +10,9 @@ hot: 15
 prompt: 
 download: /systems/orders/
 downloadLabel: 打開相關工具
+video: 
+tool: orders
+file: /downloads/order-columns.csv
 ---
 這六欄夠把過去的叫貨變成「平常叫多少」。欄位名稱可以有一點差異，例如供應商、品名，系統還是認得出來。
 

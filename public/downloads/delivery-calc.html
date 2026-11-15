@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>外送試算</title>
+<body style="font-family:sans-serif;max-width:420px;margin:24px">
+<h1>外送試算</h1>
+<p>店內價、食材、抽成，算出要賣多少才留得住毛利。數字只在這台裝置。</p>
+<label>店內價 <input id="price" type="number" value="120"></label>
+<label>食材 <input id="cost" type="number" value="40"></label>
+<label>抽成 % <input id="fee" type="number" value="30"></label>
+<p id="out"></p>
+<script>
+function run(){
+  const price=+priceEl.value, cost=+costEl.value, fee=+feeEl.value;
+  const need=Math.ceil(cost/(1-fee/100-0.3));
+  out.textContent="若想留三成毛利，外送價大約 "+need+" 元。店內價是 "+price+" 元。";
+}
+const priceEl=document.getElementById("price"), costEl=document.getElementById("cost"), feeEl=document.getElementById("fee"), out=document.getElementById("out");
+document.body.addEventListener("input", run); run();
+</script>

@@ -14,6 +14,9 @@ export type Article = {
   prompt: string;
   download: string;
   downloadLabel: string;
+  video: string;
+  tool: string;
+  file: string;
   body: string;
 };
 
@@ -40,6 +43,9 @@ function parse(raw: string, file: string): Article {
     prompt: data.prompt || "",
     download: data.download || "",
     downloadLabel: data.downloadLabel || "",
+    video: data.video || "",
+    tool: data.tool || "",
+    file: data.file || "",
     body: match[2].trim(),
   };
 }
