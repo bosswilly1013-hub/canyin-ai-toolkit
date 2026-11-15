@@ -26,7 +26,7 @@ export function AskPanel() {
         <ul className="mt-4 space-y-2 text-sm">
           <li><Link className="text-primary underline-offset-4 hover:underline" href="/tools/break-even">損益兩平</Link></li>
           <li><Link className="text-primary underline-offset-4 hover:underline" href="/tools/delivery">外送定價</Link></li>
-          <li><Link className="text-primary underline-offset-4 hover:underline" href="/guide">懶人包導覽</Link></li>
+          <li><Link className="text-primary underline-offset-4 hover:underline" href="/systems">現成系統</Link></li>
         </ul>
       </div>
     );

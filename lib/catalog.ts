@@ -1,3 +1,5 @@
+import { gaps, systems } from "@/lib/systems";
+
 export type CategoryId = "startup" | "cost" | "ops" | "brand" | "ai" | "external";
 
 export type Category = {
@@ -51,15 +53,6 @@ export type ToolInfo = {
 };
 
 export const tools: ToolInfo[] = [
-  {
-    slug: "order-system",
-    href: "/order-system",
-    name: "叫貨系統一鍵生成",
-    problem: "把你的叫貨 Excel 放進來，就變成你自己的廠商、品項和叫貨系統。",
-    answers: "上傳廠商、品項、單位、單價、數量、日期。先在瀏覽器看廠商清單和每月進貨金額，再部署到 Render，用同一份檔建立你的系統。",
-    category: "ops",
-    keywords: ["叫貨", "採購", "excel", "廠商", "品項", "進貨", "render"],
-  },
   {
     slug: "break-even",
     href: "/tools/break-even",
@@ -530,7 +523,7 @@ export const resources: ExternalResource[] = [
 ];
 
 export type SearchHit = {
-  kind: "工具" | "文章" | "外部工具";
+  kind: "系統" | "自製中" | "工具" | "文章";
   title: string;
   href: string;
   excerpt: string;
@@ -553,12 +546,19 @@ export function searchHits(query: string): SearchHit[] {
       excerpt: guide.summary,
       haystack: [guide.title, guide.summary, guide.paragraphs.join(" "), guide.keywords.join(" ")].join(" "),
     })),
-    ...resources.map((resource) => ({
-      kind: "外部工具" as const,
-      title: resource.name,
-      href: `/guide#${resource.id}`,
-      excerpt: resource.when,
-      haystack: [resource.name, resource.when, resource.group, resource.keywords.join(" ")].join(" "),
+    ...systems.map((system) => ({
+      kind: "系統" as const,
+      title: system.name,
+      href: system.slug === "procurement" ? "/order-system" : `/systems/${system.slug}`,
+      excerpt: system.pain,
+      haystack: [system.name, system.category, system.pain, system.dataIn, system.example].join(" "),
+    })),
+    ...gaps.map((gap) => ({
+      kind: "自製中" as const,
+      title: gap.name,
+      href: `/building/${gap.slug}`,
+      excerpt: gap.pain,
+      haystack: [gap.name, gap.pain, gap.why, "自製中"].join(" "),
     })),
     {
       kind: "文章",

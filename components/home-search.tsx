@@ -19,7 +19,7 @@ export function HomeSearch() {
       <Input
         value={query}
         onValueChange={setQuery}
-        placeholder="搜尋工具、文章或外部資源"
+        placeholder="搜尋系統或小工具，例如叫貨、訂位、毛利"
         aria-label="搜尋"
         className="h-11 bg-card"
       />

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s · 餐飲 AI 懶人包",
   },
   description:
-    "給台灣餐廳與小店的試算工具：損益兩平、外送定價、菜單毛利、營業目標、報表、品牌定位、店面走道。在瀏覽器裡算，不用下載。",
+    "給台灣餐廳的現成系統。把自己的叫貨、菜單、班表或客人名單丟進去，變成你的系統。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

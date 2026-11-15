@@ -1,10 +1,6 @@
 # 餐飲 AI 懶人包
 
-給台灣餐廳與小賣家的試算工具。損益兩平、外送定價、菜單毛利、營業目標、報表、品牌定位、店面走道，都在瀏覽器裡算完。數字用程式算，不靠 AI。
-
-另外有「叫貨系統一鍵生成」：先用自己的叫貨 Excel 在瀏覽器看廠商和每月金額，再部署成一套自己的叫貨系統。
-
-久沃餐飲集團做這份懶人包：已經有好用的免費工具就不重做，頁面上會說明什麼時候該去用它。
+給台灣餐廳的現成系統。每一類只留一套：把自己的叫貨、菜單、班表或客人名單丟進去，變成你的系統。損益、外送、毛利、走道仍是瀏覽器裡的小工具，數字用程式算。
 
 ## 本機執行
 
@@ -27,14 +23,16 @@ npm run build
 
 ## 部署
 
-### Vercel
+這個站是靜態檔，放在 Firebase Hosting。`firebase.json` 的公開目錄是 `out`，`cleanUrls` 與 `trailingSlash` 都打開。`.firebaserc` 裡的專案編號是佔位 `canyin-ai-toolkit`，部署前改成你自己的 Firebase 專案。
 
-專案已設定 `output: "export"`。建置指令用 `npm run build`，若平台要你指定輸出目錄，填 `out`。這一版沒有 API route。
+```bash
+npm run build
+npx firebase deploy --only hosting
+```
 
-### Render 靜態網站
+### Render 靜態網站（備援）
 
-- Build command: `npm install && npm run build`
-- Publish directory: `out`
+`render.yaml` 仍在。Build command 是 `npm ci && npm run build`，發布目錄是 `out`。
 
 路由使用結尾斜線（例如 `/tools/break-even/`）。沒有資料庫、沒有登入。輸入存在訪客瀏覽器的 localStorage。
 

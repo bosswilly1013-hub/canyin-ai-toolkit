@@ -15,7 +15,7 @@ export function SearchPanel() {
 
   return (
     <div>
-      <Input value={query} onValueChange={setQuery} placeholder="例如：外送 毛利、商圈、發票" aria-label="搜尋" className="h-11 bg-card" />
+      <Input value={query} onValueChange={setQuery} placeholder="例如：叫貨、訂位、外送毛利" aria-label="搜尋" className="h-11 bg-card" />
       <p className="mt-3 text-sm text-muted-foreground">{query.trim() ? `${hits.length} 筆` : "沒有打字時列出全部"}</p>
       <ul className="mt-4 space-y-3">
         {hits.length === 0 ? <li className="rounded-2xl bg-card p-4 text-sm ring-1 ring-foreground/10">沒有對到。試著改成「兩平」「外送」或「發票」。</li> : null}
