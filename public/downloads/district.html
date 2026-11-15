@@ -137,11 +137,19 @@ let placeTicket = 0;
 function samplePlaces() {
   return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001, sample: true }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015, sample: true }];
 }
+const CONV_RE = /7[\s-]*eleven|familymart|全家|萊爾富|hi[\s-]*life|ok\s*超商|okmart/i;
+function isConvTags(tags) {
+  if (!tags) return false;
+  if (tags.shop === "convenience" || tags.amenity === "convenience") return true;
+  return CONV_RE.test([tags.brand, tags.name, tags.operator].filter(Boolean).join(" "));
+}
 function shopQuery() {
-  const cap = Math.min(500, Math.max(200, Number(radius) || 300));
+  const food = Math.min(500, Math.max(200, Number(radius) || 300));
+  const conv = Math.min(1000, Math.max(800, Number(radius) || 800));
   const lat = Number(center.lat).toFixed(6);
   const lng = Number(center.lng).toFixed(6);
-  return `[out:json][timeout:18];(node["amenity"~"^(restaurant|cafe|fast_food|convenience)$"](around:${cap},${lat},${lng});way["amenity"~"^(restaurant|cafe|fast_food|convenience)$"](around:${cap},${lat},${lng}););out center 25;`;
+  const brand = "7-ELEVEN|7-Eleven|FamilyMart|全家|萊爾富|Hi-Life|OK超商";
+  return `[out:json][timeout:18];(nwr["shop"="convenience"](around:${conv},${lat},${lng});nwr["amenity"="convenience"](around:${conv},${lat},${lng});nwr["brand"~"${brand}",i](around:${conv},${lat},${lng});nwr["name"~"${brand}",i](around:${conv},${lat},${lng});nwr["amenity"~"^(restaurant|cafe|fast_food)$"](around:${food},${lat},${lng}););out center 40;`;
 }
 function readShops(json) {
   const elements = json && Array.isArray(json.elements) ? json.elements : null;
@@ -150,7 +158,7 @@ function readShops(json) {
     const lat = item.lat || (item.center && item.center.lat);
     const lng = item.lon || (item.center && item.center.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat, lng };
+    return { name: item.tags.name, kind: isConvTags(item.tags) ? "超商" : "餐飲", lat, lng };
   }).filter(Boolean);
 }
 async function askMirror(url, query) {
@@ -178,67 +186,78 @@ async function loadPlaces() {
   show([], "正在向地圖查附近店家。", "loading");
   const query = shopQuery();
   const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
-  for (const url of mirrors) {
-    if (ticket !== placeTicket) return;
-    try {
-      const found = await askMirror(url, query);
-      if (ticket !== placeTicket) return;
-      if (found && found.length) {
-        show(found, "", "live");
-        return;
-      }
-    } catch (error) { /* busy, 406, or timeout: try the next mirror */ }
+  const overpassP = new Promise((resolve) => {
+    let pending = mirrors.length;
+    let best = [];
+    mirrors.forEach((url) => {
+      askMirror(url, query).then((found) => {
+        if (found && found.length && !best.length) { best = found; resolve(best); }
+      }).catch(() => {}).finally(() => { if (--pending === 0) resolve(best); });
+    });
+  });
+  const namedP = shopsFromNominatim().catch(() => []);
+  const [overpass, named] = await Promise.all([
+    Promise.race([overpassP, new Promise((resolve) => setTimeout(() => resolve([]), 14000))]),
+    namedP
+  ]);
+  if (ticket !== placeTicket) return;
+  const merged = mergePlaces(overpass, named);
+  if (merged.length) {
+    show(merged, "", "live");
+    return;
   }
-  if (ticket !== placeTicket) return;
-  try {
-    const named = await shopsFromNominatim();
-    if (ticket !== placeTicket) return;
-    if (named.length) {
-      show(named, "", "live");
-      return;
-    }
-  } catch (error) { /* directory search failed too */ }
-  if (ticket !== placeTicket) return;
   show(samplePlaces(), "附近店家這次沒有連上。下面兩家是示範，只用於估算。人口仍是戶政資料。", "sample");
 }
+function mergePlaces(a, b) {
+  const seen = new Set();
+  const out = [];
+  for (const place of [...a, ...b]) {
+    const key = place.kind + "@" + Number(place.lat).toFixed(4) + "," + Number(place.lng).toFixed(4);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(place);
+  }
+  return out;
+}
 async function shopsFromNominatim() {
-  const dLat = 500 / 111000;
-  const dLng = 500 / (111000 * Math.cos(Number(center.lat) * Math.PI / 180));
+  const span = 900;
+  const dLat = span / 111000;
+  const dLng = span / (111000 * Math.cos(Number(center.lat) * Math.PI / 180));
   const viewbox = [center.lng - dLng, Number(center.lat) + dLat, center.lng + dLng, Number(center.lat) - dLat].join(",");
-  const jobs = [["convenience", "超商"], ["restaurant", "餐飲"], ["cafe", "餐飲"], ["fast_food", "餐飲"]];
+  const jobs = [
+    ["q=" + encodeURIComponent("[shop=convenience]"), "超商", 1000],
+    ["q=" + encodeURIComponent("7-ELEVEN"), "超商", 1000],
+    ["q=" + encodeURIComponent("FamilyMart"), "超商", 1000],
+    ["q=" + encodeURIComponent("全家"), "超商", 1000],
+    ["q=" + encodeURIComponent("萊爾富"), "超商", 1000],
+    ["q=" + encodeURIComponent("Hi-Life"), "超商", 1000],
+    ["q=" + encodeURIComponent("OK超商"), "超商", 1000],
+    ["amenity=restaurant", "餐飲", 550],
+    ["amenity=cafe", "餐飲", 550],
+    ["amenity=fast_food", "餐飲", 550]
+  ];
   const found = [];
   const seen = new Set();
-  for (const [amenity, kind] of jobs) {
-    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&countrycodes=tw&bounded=1&viewbox=" + viewbox + "&amenity=" + amenity;
-    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+  for (const [query, kind, limit] of jobs) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&countrycodes=tw&bounded=1&viewbox=" + viewbox + "&" + query;
+    let response;
+    try {
+      response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
+    } catch (error) { continue; }
     if (!response.ok) continue;
     const rows = await response.json();
     if (!Array.isArray(rows)) continue;
     for (const item of rows) {
-      if (item.category && item.category !== "amenity" && item.category !== "shop") continue;
       const lat = Number(item.lat);
       const lng = Number(item.lon);
       const name = String(item.name || "").trim();
-      if (!name || seen.has(name) || !Number.isFinite(lat) || meters(center, { lat, lng }) > 550) continue;
-      seen.add(name);
-      found.push({ name, kind, lat, lng });
-    }
-  }
-  if (!found.some((place) => place.kind === "超商")) {
-    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&countrycodes=tw&bounded=1&viewbox=" + viewbox + "&q=" + encodeURIComponent("7-ELEVEN");
-    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
-    if (response.ok) {
-      const rows = await response.json();
-      if (Array.isArray(rows)) {
-        for (const item of rows) {
-          const lat = Number(item.lat);
-          const lng = Number(item.lon);
-          const name = String(item.name || "7-ELEVEN").trim();
-          if (!Number.isFinite(lat) || seen.has(name) || meters(center, { lat, lng }) > 550) continue;
-          seen.add(name);
-          found.push({ name, kind: "超商", lat, lng });
-        }
-      }
+      if (!name || !Number.isFinite(lat) || !Number.isFinite(lng) || meters(center, { lat, lng }) > limit) continue;
+      const conv = kind === "超商" || item.type === "convenience" || CONV_RE.test(name);
+      const key = (conv ? "超商" : "餐飲") + "@" + lat.toFixed(4) + "," + lng.toFixed(4);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push({ name, kind: conv ? "超商" : "餐飲", lat, lng });
     }
   }
   return found;
