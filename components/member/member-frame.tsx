@@ -295,12 +295,13 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
       {(page === "read" || hashSlug) && article ? (
         <article className="read overlay viewer">
           <header className="overlay-bar no-print">
-            <a href="/#/">← 回去學習</a>
-            <span>{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
-            <button type="button" onClick={() => void copyText(location.origin + `/read/${article.slug}/`)}>複製連結</button>
+            <a href="/#/">←</a>
+            <div className="tw">
+              <span className="vcat">{topics.find((topic) => topic.id === article.category)?.name} · {articleKind(article)}</span>
+              <span className="t">{article.title}</span>
+            </div>
+            <button type="button" className="copy" onClick={() => void copyText(location.origin + `/#/c/${article.slug}`)}>連結</button>
           </header>
-          <h1>{article.title}</h1>
-          <p>{article.summary}</p>
           <p className="no-print">約 {article.minutes} 分鐘 {isNew(article.date) ? "· 新" : ""} {seen.includes(article.slug) ? "· 看過" : ""}
             {" "}
             <button type="button" onClick={() => toggleFav(article.slug)}>{favs.includes(article.slug) ? "已收藏" : "收藏"}</button>
@@ -322,10 +323,9 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
             </ul>
           ) : null}
           {article.tool ? (
-            <div className="tool-box no-print">
-              <button type="button" onClick={() => setShowTool((value) => !value)}>直接開啟使用</button>
-              {" "}
-              {article.file ? <a href={article.file} download>下載到電腦</a> : null}
+            <div className="tool-actions no-print">
+              <button type="button" className="open" onClick={() => setShowTool((value) => !value)}>▶ 直接開啟使用</button>
+              {article.file ? <a className="save" href={article.file} download>下載到電腦</a> : null}
               {showTool ? <iframe title={article.title} src={article.tool.startsWith("/") ? article.tool : `/systems/${article.tool}/`} /> : null}
             </div>
           ) : null}
@@ -474,8 +474,9 @@ function HomeView(props: {
                 const done = list.filter((article) => props.seen.includes(article.slug)).length;
                 return (
                   <button type="button" key={topic.id} className={filter === topic.id ? "cl-it on" : "cl-it"} onClick={() => setFilter(topic.id)}>
+                    <i className={`ico ico-${topic.id}`} />
                     <span className="nm">{topic.name}</span>
-                    <span className="cnt">{done ? `${done}/` : ""}{list.length}</span>
+                    <span className="cnt">{list.length}</span>
                   </button>
                 );
               })}

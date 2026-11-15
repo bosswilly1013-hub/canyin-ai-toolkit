@@ -12,6 +12,11 @@
   main { display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 52px); }
   aside { padding: 12px; overflow: auto; }
   #map { min-height: 70vh; }
+  .stepcard { background: #fff; border: 1px solid #e8e8e0; border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .days { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .day { border: 1px solid #e8e8e0; border-radius: 999px; padding: 4px 10px; background: #fff; }
+  .day.on { background: #1A1A16; color: #C3F000; }
+  #go { width: 100%; background: #C3F000; color: #1A1A16; font-weight: 800; border: 0; border-radius: 12px; padding: 12px; }
   .stop { display: flex; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid #e4ddd0; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td, th { border-bottom: 1px solid #e4ddd0; text-align: left; padding: 4px; }
@@ -135,19 +140,21 @@ function render() {
     const areas = ["全部", ...new Set(state.shops.map((shop) => shop.area))];
     const shown = state.shops.filter((shop) => (area === "全部" || shop.area === area) && shop.name.includes(query));
     panel.innerHTML = `
-      <label>星期 <select id="day">${["週一","週二","週三","週四","週五","週六","臨時"].map((item) => `<option ${item===day?"selected":""}>${item}</option>`).join("")}</select></label>
+      <div class="stepcard"><b>1 哪一天、誰送</b>
+      <div class="days">${["週一","週二","週三","週四","週五","週六","臨時"].map((item) => `<button type="button" class="day ${item===day?"on":""}" data-day="${item}">${item}</button>`).join("")}</div>
       <label>司機 <select id="driver">${state.drivers.map((item) => `<option ${item===driver?"selected":""}>${item}</option>`).join("")}</select></label>
-      <label><input id="back" type="checkbox" ${back?"checked":""}> 送完回倉庫</label>
       <p>起點：${state.warehouse.name}</p>
-      <input id="q" placeholder="搜尋店名" value="${query}">
+      <label><input id="back" type="checkbox" ${back?"checked":""}> 送完要回到出發地</label></div>
+      <div class="stepcard"><b>2 勾要送的店</b>
+      <input id="q" placeholder="搜尋店名 / 地址" value="${query}">
       <select id="area">${areas.map((item) => `<option ${item===area?"selected":""}>${item}</option>`).join("")}</select>
       <button type="button" id="all">這區全勾</button>
       <button type="button" id="none">清空勾選</button>
       <div>${shown.map((shop) => `<label class="stop"><input type="checkbox" data-shop="${shop.name}" ${picked.has(shop.name)?"checked":""}> ${shop.name} · ${shop.area} ${shop.note ? "· " + shop.note : ""} ${shop.lat ? "" : "缺・按我補"}</label>`).join("")}</div>
-      <p class="bar"><button type="button" id="go">排路線</button></p>
+      <p class="bar"><button type="button" id="go">排路線</button></p></div>
       ${order.length ? `<p><b>${order.length} 站</b> · ${order.meta.km} 公里 · 約 ${order.meta.min} 分</p>` + order.map((point, index) => `<div class="stop">${index+1}. ${point.name} <button type="button" data-up="${index}">▲</button><button type="button" data-down="${index}">▼</button></div>`).join("") + `<p>${navLinks()}</p><button type="button" id="copy">複製給 LINE</button> <button type="button" id="keep">存成固定路線</button> <button type="button" id="wipe">清掉重排</button>` : ""}`;
     panel.querySelectorAll("[data-shop]").forEach((box) => box.onchange = () => { box.checked ? picked.add(box.dataset.shop) : picked.delete(box.dataset.shop); });
-    panel.querySelector("#day").onchange = (event) => { day = event.target.value; };
+    panel.querySelectorAll("[data-day]").forEach((button) => button.onclick = () => { day = button.dataset.day; render(); });
     panel.querySelector("#driver").onchange = (event) => { driver = event.target.value; };
     panel.querySelector("#back").onchange = (event) => { back = event.target.checked; };
     panel.querySelector("#q").onchange = (event) => { query = event.target.value; render(); };
