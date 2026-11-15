@@ -48,12 +48,14 @@
 <script src="/vendor/xlsx.full.min.js"></script>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.report.v3";
-function blankDay() { return { dine: 0, delivery: 0, guests: 0, buy: 0, cashExp: 0, otherIn: 0, otherOut: 0, register: 0 }; }
+const KEY = "jiuwo.tool.report.v4";
+function blankDay() { return { dine: 0, delivery: 0, guests: 0, hq: 0, buy: 0, cashExp: 0, otherIn: 0, otherOut: 0, register: 0, extras: {} }; }
+function extraTotal(day, cols) { return (cols || []).filter((col) => col.on).reduce((sum, col) => sum + Number((day.extras || {})[col.name] || 0), 0); }
 function blankMonth(seed) {
   return {
     target: 900000,
-    days: Array.from({ length: 31 }, (_, i) => seed ? { dine: 28000 + (i % 5) * 800, delivery: 6000, guests: 90, buy: i % 3 === 0 ? 8000 : 0, cashExp: 500, otherIn: 0, otherOut: 0, register: 27500 + (i % 5) * 800 } : blankDay()),
+    extraCols: [{ name: "薪資", on: true }, { name: "廢油", on: false }, { name: "其他進貨", on: true }],
+    days: Array.from({ length: 31 }, (_, i) => seed ? { dine: 28000 + (i % 5) * 800, delivery: 6000, guests: 90, hq: i % 7 === 0 ? 4000 : 0, buy: i % 3 === 0 ? 8000 : 0, cashExp: 500, otherIn: 0, otherOut: 0, register: 27500 + (i % 5) * 800, extras: { "薪資": i % 15 === 0 ? 2000 : 0, "其他進貨": 0 } } : blankDay()),
     waste: seed ? [{ item: "青菜", reason: "進太多", qty: 2, amount: 400 }] : [],
     company: { revenue: 1200000, discount: 20000, begin: 80000, buy: 380000, returns: 8000, end: 90000, variable: [{ name: "包材", amount: 24000 }], fixed: [{ name: "房租", amount: 60000 }, { name: "人事", amount: 240000 }], other: 4000, taxRate: 20 }
   };
@@ -68,7 +70,8 @@ function cash(day) { const expect = Number(day.dine) + Number(day.otherIn) - Num
 function active(day) { return ["dine","delivery","guests","buy","cashExp","register"].some((key) => Number(day[key])); }
 function storePL(month) {
   const sales = sum(month, "dine") + sum(month, "delivery");
-  const cogs = sum(month, "buy");
+  const extras = month.days.reduce((total, day) => total + extraTotal(day, month.extraCols), 0);
+  const cogs = sum(month, "buy") + sum(month, "hq") + extras;
   const fixed = sum(month, "cashExp") + month.days.reduce((t, day) => t + Number(day.otherOut || 0), 0);
   const other = sum(month, "otherIn");
   const profit = sales + other - cogs - fixed;
@@ -105,12 +108,20 @@ function render() {
   else renderStorePL(month, pl, last);
 }
 function renderJournal(month) {
-  const head = "<tr><th>日</th><th>店內</th><th>外送</th><th>來客</th><th>進貨</th><th>費用付現</th><th>其他收入</th><th>其他支出</th><th>收銀機</th><th>差額</th></tr>";
+  month.extraCols = month.extraCols || [{ name: "薪資", on: true }, { name: "廢油", on: false }, { name: "其他進貨", on: true }];
+  month.days.forEach((day) => { if (day.hq == null) day.hq = 0; day.extras = day.extras || {}; });
+  const cols = month.extraCols.map((col, index) => `<th><label><input data-on="${index}" type="checkbox" ${col.on ? "checked" : ""}> ${col.name}</label> <button type="button" data-drop="${index}">×</button></th>`).join("");
+  const head = `<tr><th>日</th><th>店內營業額</th><th>外送營業額</th><th>來客數</th><th>總部配貨</th><th>進貨</th>${cols}<th><button type="button" id="addcol">＋</button></th><th>費用付現</th><th>其他收入</th><th>其他支出</th><th>收銀機</th><th>差額</th></tr>`;
   document.getElementById("body").innerHTML = `<table class="sheet">${head}${month.days.map((day, index) => {
     const diff = cash(day).diff;
-    return `<tr><td>${index+1}</td>${["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"].map((key) => `<td><input data-d="${index}" data-k="${key}" type="number" value="${day[key]||""}"></td>`).join("")}<td>${active(day) ? diff : ""}</td></tr>`;
-  }).join("")}</table><p>外送不計入收銀機。應有現金＝店內＋其他收入－費用付現－其他支出。差額＝收銀機－應有現金。</p>`;
+    const extraCells = month.extraCols.map((col) => `<td><input data-x="${index}" data-name="${col.name}" type="number" value="${day.extras[col.name] || ""}"></td>`).join("");
+    return `<tr><td>${index+1}</td>${["dine","delivery","guests","hq","buy"].map((key) => `<td><input data-d="${index}" data-k="${key}" type="number" value="${day[key]||""}"></td>`).join("")}${extraCells}<td></td>${["cashExp","otherIn","otherOut","register"].map((key) => `<td><input data-d="${index}" data-k="${key}" type="number" value="${day[key]||""}"></td>`).join("")}<td>${active(day) ? diff : ""}</td></tr>`;
+  }).join("")}</table><p>總部配貨和打勾的欄位算進進貨。外送不計入收銀機。應有現金＝店內＋其他收入－費用付現－其他支出。</p>`;
   document.querySelectorAll("[data-d]").forEach((input) => input.onchange = () => { month.days[input.dataset.d][input.dataset.k] = Number(input.value || 0); render(); });
+  document.querySelectorAll("[data-x]").forEach((input) => input.onchange = () => { const day = month.days[input.dataset.x]; day.extras[input.dataset.name] = Number(input.value || 0); render(); });
+  document.querySelectorAll("[data-on]").forEach((input) => input.onchange = () => { month.extraCols[input.dataset.on].on = input.checked; render(); });
+  document.querySelectorAll("[data-drop]").forEach((button) => button.onclick = () => { month.extraCols.splice(Number(button.dataset.drop), 1); render(); });
+  document.getElementById("addcol").onclick = () => { const name = prompt("欄位名稱", "新進貨"); if (!name) return; month.extraCols.push({ name, on: true }); render(); };
 }
 function renderTarget(month) {
   let runSales = 0, runTarget = 0;
@@ -191,19 +202,22 @@ document.getElementById("mode").onclick = () => { state.mode = state.mode === "s
 document.getElementById("shop").onchange = (e) => { state.shop = e.target.value; Jiuwo.save(KEY, state); };
 document.getElementById("year").onchange = (e) => { state.year = Number(e.target.value); Jiuwo.save(KEY, state); };
 function journalRows(month) {
-  return [["日","店內","外送","來客","進貨","費用付現","其他收入","其他支出","收銀機"], ...month.days.map((day, i) => [i+1, day.dine, day.delivery, day.guests, day.buy, day.cashExp, day.otherIn, day.otherOut, day.register])];
+  const cols = month.extraCols || [];
+  return [["日","店內","外送","來客","總部配貨","進貨", ...cols.map((col) => col.name), "費用付現","其他收入","其他支出","收銀機"], ...month.days.map((day, i) => [i+1, day.dine, day.delivery, day.guests, day.hq || 0, day.buy, ...cols.map((col) => (day.extras || {})[col.name] || 0), day.cashExp, day.otherIn, day.otherOut, day.register])];
 }
 document.getElementById("exp").onclick = () => Jiuwo.xlsx(state.shop + "-" + state.month + "月.xlsx", journalRows(cur()).concat([["損耗品項","原因","數量","金額"], ...cur().waste.map((row) => [row.item, row.reason, row.qty, row.amount])]));
-document.getElementById("tpl").onclick = () => Jiuwo.xlsx("日記帳範本.xlsx", [["日","店內","外送","來客","進貨","費用付現","其他收入","其他支出","收銀機"], ...Array.from({length:31}, (_,i)=>[i+1,0,0,0,0,0,0,0,0])]);
+document.getElementById("tpl").onclick = () => Jiuwo.xlsx("日記帳範本.xlsx", [["日","店內","外送","來客","總部配貨","進貨","費用付現","其他收入","其他支出","收銀機"], ...Array.from({length:31}, (_,i)=>[i+1,0,0,0,0,0,0,0,0,0])]);
 document.getElementById("imp").onchange = async (event) => {
   const rows = await Jiuwo.read(event.target.files[0]);
   const month = cur();
+  const hasHq = (rows[0] || []).some((cell) => String(cell).includes("總部"));
+  const keys = hasHq ? ["dine","delivery","guests","hq","buy","cashExp","otherIn","otherOut","register"] : ["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"];
   let days = 0, waste = 0;
   rows.slice(1).forEach((row) => {
     const day = Number(row[0]);
     if (day >= 1 && day <= 31 && row.length >= 5) {
       const item = month.days[day - 1];
-      ["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"].forEach((key, index) => { if (row[index+1] !== "") item[key] = Number(row[index+1]) || 0; });
+      keys.forEach((key, index) => { if (row[index+1] !== "") item[key] = Number(row[index+1]) || 0; });
       days += 1;
     } else if (row[0] && row[3] !== "" && !day) {
       month.waste.push({ item: row[0], reason: row[1] || "進太多", qty: Number(row[2])||0, amount: Number(row[3])||0 });

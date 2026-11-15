@@ -308,6 +308,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
             {" "}
             <button type="button" onClick={() => window.print()}>列印</button>
           </p>
+          <div className="article-cover"><CoverArt topic={article.category} title={article.title} slug={article.slug} /></div>
           {article.video ? <VideoPlayer src={article.video} /> : null}
           {renderBody(article.body, setZoom, (text) => void copyText(text))}
           {article.prompt ? (

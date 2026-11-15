@@ -64,7 +64,9 @@ window.Jiuwo = {
   async geocode(query) {
     const q = query.trim();
     if (!q) return null;
-    const local = this.places.find((place) => q.includes(place[0]) || place[0].includes(q));
+    const exact = this.places.find((place) => place[0] === q);
+    const contained = this.places.filter((place) => place[0] !== q && q.includes(place[0])).sort((a, b) => b[0].length - a[0].length)[0];
+    const local = exact || contained;
     if (local) return { name: local[0], lat: local[1], lng: local[2], source: "站內地名" };
     const pair = q.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
     if (pair) return { name: q, lat: Number(pair[1]), lng: Number(pair[2]), source: "座標" };

@@ -37,9 +37,9 @@
 .hero-main { min-width: 0; }
 .eyebrow { display: inline-flex; gap: 8px; align-items: center; background: rgba(195,240,0,.22); color: #5f7a00; border: 1px solid rgba(155,196,0,.45); border-radius: 999px; padding: 5px 12px; font-size: .78rem; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: #C3F000; }
-.hero h2 { font-size: 2.1rem; line-height: 1.3; margin: 12px 0; }
-.hero h2 em { font-style: normal; background: linear-gradient(90deg, #7fa300, #f08c00); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.lead { color: #5a5a52; }
+.hero h2 { font-size: 2.7rem; line-height: 1.25; margin: 12px 0; color: #1a1a16; }
+.hero h2 em { font-style: normal; color: #3f5600; background: none; }
+.lead { color: #2a2a24; font-size: 1.12rem; }
 .offer { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
 .offer button, .offer .live { border: 1px solid #e8e8e0; background: rgba(255,255,255,.75); border-radius: 10px; padding: 6px 12px; }
 .offer .live { background: #1A1A16; color: #fff; }
@@ -98,7 +98,7 @@
 .me-card img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid #C3F000; }
 .me-card .go { color: #6f9000; font-weight: 700; }
 .tiny { color: #999; font-size: .75rem; padding: 0 8px 8px; }
-.cats { display: flex; gap: 8px; overflow: auto; margin-bottom: 16px; }
+.cats { display: flex; gap: 8px; flex-wrap: wrap; overflow: visible; margin-bottom: 16px; }
 .cat { border: 1px solid #e8e8e0; background: #fff; border-radius: 999px; padding: 8px 14px; white-space: nowrap; color: #5a5a52; }
 .cat.on { background: #1A1A16; color: #fff; }
 .cats .sep { width: 1px; background: #e8e8e0; }
@@ -163,7 +163,9 @@
 .dlr .info b { color: inherit; font-size: .93rem; }
 .dlr .get { flex: none; margin-left: auto; }
 .cats, .layout, .main, .grid { min-width: 0; max-width: 100%; }
-.cats { overflow-x: auto; }
+.cats { flex-wrap: wrap; overflow: visible; }
+.article-cover { max-width: 860px; margin: 18px auto 8px; border-radius: 18px; overflow: hidden; }
+.article-cover svg { width: 100%; height: auto; display: block; }
 .get { background: #C3F000; color: #1A1A16; border-radius: 8px; padding: 8px 14px; font-weight: 800; text-decoration: none; }
 .get::before { content: "↓ "; }
 .cl-it .ico { width: 18px; height: 18px; display: inline-flex; flex: none; color: currentColor; }

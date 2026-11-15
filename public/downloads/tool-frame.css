@@ -35,7 +35,7 @@ input[type="number"] { width: 100%; }
 .note.ok { background: #eef8d8; }
 .note.warn { background: #fff4d6; border-left: 3px solid #e0a100; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-table.sheet { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+table.sheet { width: 100%; border-collapse: collapse; background: #fff; font-size: 15px; }
 table.sheet th { background: #f3f0e6; text-align: left; font-weight: 700; }
 table.sheet td, table.sheet th { border-bottom: 1px solid var(--line); padding: 6px 8px; }
 table.sheet tr:nth-child(even) td { background: #fbfaf6; }

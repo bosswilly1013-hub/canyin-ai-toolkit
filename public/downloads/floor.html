@@ -12,10 +12,17 @@
   .stage-wrap { position: relative; display: flex; flex-direction: column; min-width: 0; background:
     linear-gradient(#e4e0d6 1px, transparent 1px), linear-gradient(90deg, #e4e0d6 1px, transparent 1px);
     background-size: 24px 24px; background-color: #f3f1ea; }
-  .stage-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; background: rgba(255,255,255,.92); border-bottom: 1px solid #e6e1d6; }
+  .stage-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; background: rgba(255,255,255,.92); border-bottom: 1px solid #e6e1d6; font-size: 16px; }
+  .stage-bar button, #lib button, #info button { font-size: 15px; padding: 8px 12px; }
+  #lib, #info { font-size: 15px; }
+  .equip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 10px; }
+  .equip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 72px; font-size: 14px; line-height: 1.2; }
+  .equip svg { width: 22px; height: 22px; stroke: #1a1a16; fill: none; stroke-width: 1.6; }
+  .equip small { color: #6d685f; font-size: 12px; }
   #stage { position: relative; flex: 1; overflow: auto; }
   svg { background: transparent; }
   .welcome { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(22,22,15,.28); z-index: 5; }
+  .welcome.is-hidden { display: none !important; }
   .welcome .box { width: min(460px, 92%); background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.18); }
   .welcome li { margin: 8px 0; }
   .side-title { font-weight: 800; margin: 12px 0 6px; }
@@ -156,7 +163,7 @@ function draw() {
       <text x="3" y="12" font-size="11">${item.name}</text></g>`;
   }).join("");
   const measures = (state.measures || []).map((m) => `<line x1="${toPx(m[0])}" y1="${toPx(m[1])}" x2="${toPx(m[2])}" y2="${toPx(m[3])}" stroke="#e15a2b"/><text x="${toPx((m[0]+m[2])/2)}" y="${toPx((m[1]+m[3])/2)}" font-size="12">${Math.round(Math.hypot(m[2]-m[0], m[3]-m[1]))} 公分</text>`).join("");
-  document.getElementById("stage").innerHTML = `<svg id="plan" width="${w}" height="${h}"><polygon points="${pts}" fill="#f7f3ea" stroke="#1d3c34" stroke-width="${Math.max(2, state.thick * scale / 4)}"/>${walls}${boxes}${measures}</svg>`;
+  document.getElementById("stage").innerHTML = `<svg id="plan" width="${w}" height="${h}"><polygon points="${pts}" fill="rgba(255,248,240,.35)" stroke="#e07a2f" stroke-width="3" stroke-dasharray="10 7"/>${walls}${boxes}${measures}</svg>`;
   document.getElementById("thick").value = state.thick;
   const info = areaInfo();
   const counts = {};
@@ -243,7 +250,10 @@ window.addEventListener("pointerup", (event) => {
   }
   if (drag) { drag = null; Jiuwo.save(KEY, state); }
 });
+function closeWelcome() { document.getElementById("welcome").classList.add("is-hidden"); }
+document.getElementById("welcome").addEventListener("click", (event) => { if (event.target.id === "welcome") closeWelcome(); });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { closeWelcome(); return; }
   if (["INPUT","TEXTAREA","SELECT"].includes(event.target.tagName) || !state.selected.length) return;
   const step = event.shiftKey ? 10 : 1;
   const map = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
@@ -254,7 +264,8 @@ document.addEventListener("keydown", (event) => {
 });
 const groups = {};
 LIB.forEach((item, index) => { (groups[item[0]] = groups[item[0]] || []).push(index); });
-document.getElementById("lib").innerHTML = `<p class="side-title">空間</p><p class="hint">店名先寫在心裡。左邊點設備就放到圖上。</p><p class="side-title">畫出店面格局</p><button type="button" id="go-wall" class="lime">用拉線畫牆</button><p class="hint">方正店直接填寬和深。L 型會再問缺角。</p><p class="side-title">設備 ${LIB.length} 項</p>` + Object.entries(groups).map(([cat, indexes]) => `<details><summary>${cat} ${indexes.length}</summary>${indexes.map((index) => `<button type="button" data-lib="${index}" style="display:block;width:100%;text-align:left;margin:3px 0">${LIB[index][1]} ${LIB[index][2]}×${LIB[index][3]}</button>`).join("")}</details>`).join("") +
+const GLYPH = { "冷藏":"M5 4h14v16H5zM9 4v16", "熱廚":"M6 16c2-6 10-6 12 0M8 8h.1M12 6h.1M16 8h.1", "備餐":"M4 14h16M6 14V8h12v6", "座位":"M7 10h10v4H7zM6 14v4M18 14v4", "吧台":"M4 10h16v3H4zM7 13v5M17 13v5", "門窗":"M6 4h12v16H6zM12 4v16", "固定":"M8 8h8v8H8z", "水電":"M12 4v6M8 14a4 4 0 1 0 8 0c0-2-2-3-4-6", "文字":"M6 8h12M8 12h8M10 16h4" };
+document.getElementById("lib").innerHTML = `<p class="side-title">空間</p><p class="hint">店名先寫在心裡。左邊點設備就放到圖上。</p><p class="side-title">畫出店面格局</p><button type="button" id="go-wall" class="lime">用拉線畫牆</button><p class="hint">橘虛線是牆。方正店直接填寬和深。</p><p class="side-title">設備 ${LIB.length} 項</p>` + Object.entries(groups).map(([cat, indexes]) => `<details open><summary>${cat} ${indexes.length}</summary><div class="equip-grid">${indexes.map((index) => `<button type="button" class="equip" data-lib="${index}"><svg viewBox="0 0 24 24"><path d="${GLYPH[cat] || "M5 5h14v14H5z"}"/></svg><span>${LIB[index][1]}</span><small>${LIB[index][2]}×${LIB[index][3]}</small></button>`).join("")}</div></details>`).join("") +
   `<h3>自訂</h3><input id="cname" placeholder="名稱"><input id="cw" type="number" placeholder="寬" style="width:3rem"><input id="ch" type="number" placeholder="深" style="width:3rem"><button type="button" id="cadd">放上平面圖</button>`;
 document.querySelectorAll("[data-lib]").forEach((button) => button.onclick = () => {
   const spec = LIB[button.dataset.lib];
@@ -318,7 +329,7 @@ document.getElementById("print").onclick = () => window.print();
 document.getElementById("demo").onclick = () => { snap(); state = structuredClone(DEMO); save(); };
 document.getElementById("blank").onclick = () => { snap(); state.items = []; state.measures = []; state.selected = []; save(); };
 document.getElementById("go-wall").onclick = () => setTool("wall");
-document.getElementById("welcome-demo").onclick = () => { document.getElementById("welcome").hidden = true; document.getElementById("demo").click(); };
-document.getElementById("welcome-blank").onclick = () => { document.getElementById("welcome").hidden = true; document.getElementById("blank").click(); };
+document.getElementById("welcome-demo").onclick = () => { closeWelcome(); document.getElementById("demo").click(); };
+document.getElementById("welcome-blank").onclick = () => { closeWelcome(); document.getElementById("blank").click(); };
 draw();
 </script>

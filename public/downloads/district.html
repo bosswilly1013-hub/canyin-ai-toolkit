@@ -217,13 +217,20 @@ document.getElementById("mode").onclick = () => {
   document.getElementById("mode").textContent = saved.mode === "walk" ? "步行圈" : "看行政區";
   if (saved.mode === "admin") drawAdmin(); else drawWalk();
 };
-document.getElementById("find").onclick = async () => {
+async function runSearch() {
   const queryText = document.getElementById("q").value.trim();
-  const found = await Jiuwo.geocode(queryText);
+  const known = (Jiuwo.places || []).find((place) => place[0] === queryText);
+  const found = known ? { name: known[0], lat: known[1], lng: known[2] } : await Jiuwo.geocode(queryText);
   if (!found) { alert("找不到。可試高雄巨蛋、高雄車站、台北車站，或貼緯度,經度。"); return; }
-  center = { lat: found.lat, lng: found.lng, label: found.name || found.label || queryText };
-  map.setView([center.lat, center.lng], 15); await loadPlaces(); drawWalk();
-};
+  center = { lat: found.lat, lng: found.lng, label: found.name || queryText };
+  saved.lat = center.lat; saved.lng = center.lng; saved.label = center.label;
+  map.setView([center.lat, center.lng], 15);
+  if (data) drawWalk();
+  await loadPlaces();
+  if (data) drawWalk();
+}
+document.getElementById("find").onclick = () => { void runSearch(); };
+document.getElementById("q").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void runSearch(); } });
 marker.on("dragend", async () => { const p = marker.getLatLng(); center = { lat: p.lat, lng: p.lng, label: "拖曳的位置" }; await loadPlaces(); drawWalk(); });
 document.querySelectorAll("input[name=r]").forEach((input) => { input.checked = Number(input.value) === radius; input.onchange = async () => { radius = Number(input.value); await loadPlaces(); drawWalk(); }; });
 document.getElementById("add").onclick = () => { saved.compare = saved.compare || []; saved.compare.push({ ...center, radius, people: document.getElementById("stats").innerText.match(/估算人口\s+([\d,]+)/)?.[1] || "" }); drawWalk(); };
