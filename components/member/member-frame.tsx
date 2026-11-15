@@ -106,7 +106,8 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     // 登入狀態只存在這台裝置，必須等瀏覽器起來才能讀。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthed(localStorage.getItem(authStorageKey) === "ok");
-    setTheme((localStorage.getItem(themeKey) as "light" | "dark") || "light");
+    localStorage.removeItem(themeKey);
+    setTheme("light");
     setSeen(readList(seenKey));
     setFavs(readList(favKey));
     setRecent(readList(recentKey));
@@ -302,7 +303,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
             </div>
             <button type="button" className="copy" onClick={() => void copyText(location.origin + `/#/c/${article.slug}`)}>連結</button>
           </header>
-          <p className="no-print">約 {article.minutes} 分鐘 {isNew(article.date) ? "· 新" : ""} {seen.includes(article.slug) ? "· 看過" : ""}
+          <p className="article-meta no-print">約 {article.minutes} 分鐘 {isNew(article.date) ? "· 新" : ""} {seen.includes(article.slug) ? "· 看過" : ""}
             {" "}
             <button type="button" onClick={() => toggleFav(article.slug)}>{favs.includes(article.slug) ? "已收藏" : "收藏"}</button>
             {" "}
@@ -310,7 +311,7 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
           </p>
           <div className="article-cover"><CoverArt topic={article.category} title={article.title} slug={article.slug} /></div>
           {article.video ? <VideoPlayer src={article.video} /> : null}
-          {renderBody(article.body, setZoom, (text) => void copyText(text))}
+          <div className="article-body">{renderBody(article.body, setZoom, (text) => void copyText(text))}</div>
           {article.prompt ? (
             <div className="code no-print">
               <p>{article.prompt}</p>

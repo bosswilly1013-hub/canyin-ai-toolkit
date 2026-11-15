@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant-TW">
 <meta charset="utf-8">
 <link rel="stylesheet" href="/downloads/tool-frame.css">
 <title>商圈調查</title>
@@ -73,7 +73,7 @@ L.Icon.Default.mergeOptions({
 </script>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.district.v3";
+const KEY = "jiuwo.tool.district.v5";
 const saved = Jiuwo.load(KEY, { lat: 22.639, lng: 120.302, radius: 500, label: "高雄車站", compare: [], mode: "walk", city: "高雄市", metric: "p" });
 let data = null;
 let center = { lat: saved.lat, lng: saved.lng, label: saved.label || "高雄車站" };
@@ -162,7 +162,7 @@ function drawWalk() {
   const area = Math.PI * radius * radius / 1e6;
   const shops = places.filter((place) => place.kind === "超商").length;
   document.getElementById("list").innerHTML = `<h3>圈到的里</h3>` + stat.rows.slice(0, 12).map((row) => `<p>${row.dist}${row.n} · ${Math.round(row.p * row.share)} 人 · 重疊 ${(row.share*100).toFixed(0)}%</p>`).join("");
-  document.getElementById("stats").innerHTML = `<h2>${radius} 公尺</h2><p>${center.label || "這個地點"}</p>
+  document.getElementById("stats").innerHTML = `<h2>${radius} 公尺</h2><p>${center.label || "這個地點"}</p><p>${center.lat.toFixed(3)}, ${center.lng.toFixed(3)}</p>
     <p>估算人口 <b>${Math.round(stat.people).toLocaleString()}</b></p>
     <p>戶數 ${Math.round(stat.homes).toLocaleString()}</p>
     <p>密度 ${area ? Math.round(stat.people / area).toLocaleString() : "—"} 人／平方公里</p>
