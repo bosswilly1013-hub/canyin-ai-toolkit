@@ -84,7 +84,7 @@ function render() {
       <div class="grid4">${field("sales","月營業額")}${field("days","每月營業天數")}${field("ticket","客單價")}${field("want","每月想賺多少")}</div></section>
     <section class="step"><h2><span class="n">2</span> 變動成本　賣越多花越多</h2><p>食材、包材、平台抽成。這筆要跟營業額一起看大小。</p>
       ${variable.map(row).join("") || "<p class='hint'>還沒有變動成本。</p>"}
-      <div class="rowline"><span>變動成本合計</span><b>${Math.round(result.variable).toLocaleString()} 元（${(result.rate*100).toFixed(1)}%）</b></div>
+      <div class="rowline"><span>變動成本合計</span><b>${yuan(result.variable)}（${pctOf(result.rate)}）</b></div>
       <button type="button" id="addv">＋ 新增變動成本項目</button></section>
     <section class="step"><h2><span class="n">3</span> 固定成本　沒客人也要付</h2><p>房租、人事、水電。不營業也跑不掉的。</p>
       ${fixed.map(row).join("")}
@@ -93,46 +93,63 @@ function render() {
     <section class="step"><h2><span class="n">4</span> 小損益表</h2>
       <table class="sheet"><tr><th>項目</th><th>金額</th><th>占營業額</th></tr>
         <tr><td>營業收入</td><td>${Math.round(state.sales).toLocaleString()}</td><td>100%</td></tr>
-        <tr><td>減：變動成本</td><td>${Math.round(result.variable).toLocaleString()}</td><td>${(result.rate*100).toFixed(1)}%</td></tr>
-        <tr><td>邊際貢獻</td><td>${Math.round(state.sales - result.variable).toLocaleString()}</td><td>${(result.contribution*100).toFixed(1)}%</td></tr>
+        <tr><td>減：變動成本</td><td>${yuan(result.variable)}</td><td>${pctOf(result.rate)}</td></tr>
+        <tr><td>邊際貢獻</td><td>${yuan(state.sales - result.variable)}</td><td>${pctOf(result.contribution)}</td></tr>
         <tr><td>減：固定成本</td><td>${Math.round(result.fixed).toLocaleString()}</td><td>${state.sales ? (result.fixed/state.sales*100).toFixed(1) : 0}%</td></tr>
         <tr><td>營業淨利</td><td>${Math.round(result.profit).toLocaleString()}</td><td>${state.sales ? (result.profit/state.sales*100).toFixed(1) : 0}%</td></tr>
       </table></section>`;
   ["sales","days","ticket","want"].forEach((id) => { const node = document.getElementById(id); if (node) node.oninput = () => { const n = Number(node.value); if (node.value.trim() !== "" && !Number.isFinite(n)) return; state[id] = node.value.trim() === "" ? 0 : n; paint(); Jiuwo.save(KEY, state); }; });
   document.querySelectorAll("[data-n]").forEach((input) => input.onchange = () => { state.lines[input.dataset.n].name = input.value; Jiuwo.save(KEY, state); });
-  document.querySelectorAll("[data-a]").forEach((input) => input.oninput = () => { state.lines[input.dataset.a].amount = Number(input.value); paint(); Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-a]").forEach((input) => input.oninput = () => {
+    const n = Number(input.value);
+    if (input.value.trim() !== "" && !Number.isFinite(n)) return;
+    state.lines[input.dataset.a].amount = input.value.trim() === "" ? 0 : n;
+    paint();
+    Jiuwo.save(KEY, state);
+  });
   document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { state.lines.splice(Number(button.dataset.del), 1); render(); });
   document.getElementById("addv").onclick = () => { state.lines.push({ name: "新變動", note: "", amount: 0, kind: "變動" }); render(); };
   document.getElementById("addf").onclick = () => { state.lines.push({ name: "新固定", note: "", amount: 0, kind: "固定" }); render(); };
   paint();
 }
 function field(key, label) { return `<label class="f">${label}<input id="${key}" type="number" value="${state[key]}"></label>`; }
+function yuan(n) { return Number.isFinite(n) ? Math.round(n).toLocaleString() + " 元" : "—"; }
+function pctOf(n) { return Number.isFinite(n) ? (n * 100).toFixed(1) + "%" : "—"; }
 function paint() {
   const result = compute();
-  const width = Math.max(4, Math.min(100, state.sales ? result.breakSales / Math.max(state.sales, result.breakSales) * 100 : 0));
-  const possible = result.contribution > 0 && Number.isFinite(result.breakSales);
-  document.getElementById("out").innerHTML = `<div class="goal"><small>損益兩平營業額（每月）</small><b>${possible ? Math.round(result.breakSales).toLocaleString() + " 元" : "算不出來"}</b><span style="font-size:12px;color:rgba(255,255,255,.7)">${possible ? "平均每天 " + Math.round(result.day).toLocaleString() + " 元，約 " + result.guests.toFixed(0) + " 位客人" : "變動成本已經高過或等於營業額，請先改成本或售價。"}</span></div>
+  const possible = result.contribution > 0 && Number.isFinite(result.breakSales) && result.breakSales > 0;
+  const daily = possible && state.days > 0 ? result.day : null;
+  const guests = possible && state.days > 0 && state.ticket > 0 ? result.guests : null;
+  const goal = possible ? result.targetSales : null;
+  const safety = possible && state.sales > 0 ? result.safety : null;
+  const extra = possible && state.days > 0 && state.ticket > 0 && result.contribution * (1 - state.discount / 100) > 0 ? result.extraGuests : null;
+  const width = possible && state.sales > 0 ? Math.max(4, Math.min(100, result.breakSales / Math.max(state.sales, result.breakSales) * 100)) : 0;
+  document.getElementById("out").innerHTML = `<div class="goal"><small>損益兩平營業額（每月）</small><b>${possible ? yuan(result.breakSales) : "算不出來"}</b><span style="font-size:12px;color:rgba(255,255,255,.7)">${possible ? "平均每天 " + yuan(daily) + (guests == null ? "" : "，約 " + Math.round(guests) + " 位客人") : "變動成本已經高過或等於營業額，請先改成本或售價。"}</span></div>
     <section class="card"><h2 style="font-size:15px">計算結果</h2>
       <div class="stack" style="height:18px;margin:8px 0"><i style="width:${width}%;background:#3aaa7a"></i></div>
-      <div class="rowline"><span>目前每月損益</span><b>${Math.round(result.profit).toLocaleString()} 元</b></div>
-      <div class="rowline"><span>變動成本率</span><b>${(result.rate*100).toFixed(1)}%</b></div>
-      <div class="rowline"><span>邊際貢獻率</span><b>${(result.contribution*100).toFixed(1)}%</b></div>
-      <div class="rowline"><span>每天要做</span><b>${Math.round(result.day).toLocaleString()} 元</b></div>
-      <div class="rowline"><span>安全邊際</span><b>${(result.safety*100).toFixed(1)}%</b></div>
-      <div class="rowline"><span>要賺到想要的</span><b>${Math.round(result.targetSales).toLocaleString()} 元</b></div>
+      <div class="rowline"><span>目前每月損益</span><b>${yuan(result.profit)}</b></div>
+      <div class="rowline"><span>變動成本率</span><b>${pctOf(result.rate)}</b></div>
+      <div class="rowline"><span>邊際貢獻率</span><b>${pctOf(result.contribution)}</b></div>
+      <div class="rowline"><span>每天要做</span><b>${possible ? yuan(daily) : "算不出來"}</b></div>
+      <div class="rowline"><span>安全邊際</span><b>${pctOf(safety)}</b></div>
+      <div class="rowline"><span>要賺到想要的</span><b>${possible ? yuan(goal) : "算不出來"}</b></div>
     </section>
     <section class="card"><h2 style="font-size:15px"><span class="n">6</span> 如果打折會怎樣</h2>
       <p class="hint">全面打 ${state.discount}% 。食材不會因為打折變少。</p>
       <label class="f">打掉幾 %<input id="discount" type="range" min="0" max="40" value="${state.discount}"></label>
-      <div class="rowline"><span>每天要多幾位</span><b>${Math.max(0, result.extraGuests).toFixed(0)} 位</b></div>
-      <div class="note warn">打折前先把這格拉一下。多出來的客人，是為了補回被折掉的客單。</div>
+      <div class="rowline"><span>每天要多幾位</span><b>${extra == null ? "—" : Math.max(0, extra).toFixed(0) + " 位"}</b></div>
+      <div class="note warn">${possible ? "打折前先把這格拉一下。多出來的客人，是為了補回被折掉的客單。" : "現在還算不出兩平，打折後要多幾位也先空白。"}</div>
     </section>`;
   const discount = document.getElementById("discount");
   discount.oninput = () => { state.discount = Number(discount.value); paint(); Jiuwo.save(KEY, state); };
 }
 document.getElementById("store").onclick = () => { state.mode = "store"; state.lines = structuredClone(STORE); render(); };
 document.getElementById("company").onclick = () => { state.mode = "company"; state.lines = structuredClone(COMPANY); render(); };
-document.getElementById("csv").onclick = () => { const result = compute(); Jiuwo.csv("損益兩平.csv", [["營業額", state.sales], ["變動", Math.round(result.variable)], ["固定", Math.round(result.fixed)], ["兩平", Math.round(result.breakSales)], ["淨利", Math.round(result.profit)], ["安全邊際", result.safety]]); };
+document.getElementById("csv").onclick = () => {
+  const result = compute();
+  const possible = result.contribution > 0 && Number.isFinite(result.breakSales) && result.breakSales > 0;
+  Jiuwo.csv("損益兩平.csv", [["營業額", state.sales], ["變動", Math.round(result.variable)], ["固定", Math.round(result.fixed)], ["兩平", possible ? Math.round(result.breakSales) : "—"], ["每天要做", possible && state.days > 0 ? Math.round(result.day) : "—"], ["要賺到想要的", possible ? Math.round(result.targetSales) : "—"], ["淨利", Number.isFinite(result.profit) ? Math.round(result.profit) : "—"], ["安全邊際", possible && state.sales > 0 ? result.safety : "—"]]);
+};
 document.getElementById("print").onclick = () => window.print();
 document.getElementById("clear").onclick = () => { state.sales = 0; state.lines.forEach((line) => { line.amount = 0; }); render(); };
 document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); render(); };

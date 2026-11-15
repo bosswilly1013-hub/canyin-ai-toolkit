@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
 <meta charset="utf-8">
-<link rel="stylesheet" href="/downloads/tool-frame.css">
+<link rel="stylesheet" href="/downloads/tool-frame.css?v=4">
 <title>商圈調查</title>
-<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css?v=4">
 <style>
   .area { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 14px; }
   .mapcard { background: #16160f; color: #fff; border-radius: 22px; padding: 14px; min-height: 78vh; display: flex; flex-direction: column; }
@@ -64,7 +64,7 @@
   <p id="src" class="hint"></p>
 </div>
 <p id="src" style="padding:8px 12px;font-size:12px"></p>
-<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/leaflet/leaflet.js?v=4"></script>
 <script>
 L.Icon.Default.mergeOptions({
   iconUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
@@ -72,7 +72,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
 });
 </script>
-<script src="/vendor/jiuwo-kit.js"></script>
+<script src="/vendor/jiuwo-kit.js?v=4"></script>
 <script>
 const KEY = "jiuwo.tool.district.v5";
 const saved = Jiuwo.load(KEY, { lat: 22.639, lng: 120.302, radius: 500, label: "高雄車站", compare: [], mode: "walk", city: "高雄市", metric: "p" });
@@ -148,7 +148,7 @@ let convPromise = null;
 function loadConvData() {
   if (convData) return Promise.resolve(convData);
   if (!convPromise) {
-    convPromise = fetch("/data/convenience-tw.json", { signal: AbortSignal.timeout(15000) }).then((response) => {
+    convPromise = fetch("/data/convenience-tw.json?v=4", { signal: AbortSignal.timeout(15000) }).then((response) => {
       if (!response.ok) throw new Error(String(response.status));
       return response.json();
     }).then((json) => {
@@ -395,7 +395,7 @@ function fillDist() {
 }
 async function boot() {
   try {
-    const response = await fetch("/downloads/villages.json");
+    const response = await fetch("/downloads/villages.json?v=4");
     if (!response.ok) throw new Error(String(response.status));
     data = await response.json();
   } catch (error) {

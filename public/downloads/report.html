@@ -136,11 +136,11 @@ function renderTarget(month) {
   document.getElementById("target").onchange = (event) => { month.target = Number(event.target.value); render(); };
 }
 function renderWaste(month) {
-  const sales = storePL(month).sales || 1;
+  const sales = storePL(month).sales;
   const last = prev().waste.reduce((t, row) => t + Number(row.amount||0), 0);
   const now = month.waste.reduce((t, row) => t + Number(row.amount||0), 0);
   document.getElementById("body").innerHTML = month.waste.map((row, index) => `<p><input data-w="item" data-i="${index}" value="${row.item}"> <select data-w="reason" data-i="${index}">${["進太多","備太多","溫度","客訴"].map((reason) => `<option ${row.reason===reason?"selected":""}>${reason}</option>`).join("")}</select> 數量 <input data-w="qty" data-i="${index}" type="number" value="${row.qty}"> 金額 <input data-w="amount" data-i="${index}" type="number" value="${row.amount}"> <button type="button" data-del="${index}">刪</button></p>`).join("") +
-    `<button type="button" id="addw">加一筆</button><p>損耗率 ${(now/sales*100).toFixed(2)}%，上月 ${last.toLocaleString()} 元。</p>`;
+    `<button type="button" id="addw">加一筆</button><p>損耗率 ${sales > 0 ? (now / sales * 100).toFixed(2) + "%" : "—"}，上月 ${last.toLocaleString()} 元。</p>`;
   document.querySelectorAll("[data-w]").forEach((input) => input.onchange = () => { month.waste[input.dataset.i][input.dataset.w] = input.dataset.w === "item" || input.dataset.w === "reason" ? input.value : Number(input.value); Jiuwo.save(KEY, state); });
   document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { month.waste.splice(Number(button.dataset.del), 1); render(); });
   document.getElementById("addw").onclick = () => { month.waste.push({ item: "品項", reason: "進太多", qty: 1, amount: 0 }); render(); };
@@ -149,7 +149,7 @@ function renderStorePL(month, pl, last) {
   const row = (name, now, before) => `<tr><td>${name}</td><td>${Math.round(now).toLocaleString()}</td><td>${Math.round(before).toLocaleString()}</td><td>${Math.round(now-before).toLocaleString()}</td></tr>`;
   document.getElementById("body").innerHTML = `<table><tr><th>項目</th><th>本月</th><th>上月</th><th>差</th></tr>
     ${row("營業額", pl.sales, last.sales)}${row("進貨", pl.cogs, last.cogs)}${row("付現與其他支出", pl.fixed, last.fixed)}${row("其他收入", pl.other, last.other)}${row("淨利", pl.profit, last.profit)}</table>
-    <p>數字從日記帳加總。進貨比 ${pl.sales ? (pl.cogs/pl.sales*100).toFixed(1) : 0}%。</p>`;
+    <p>數字從日記帳加總。進貨比 ${pl.sales > 0 ? (pl.cogs / pl.sales * 100).toFixed(1) + "%" : "—"}。</p>`;
 }
 function renderYear() {
   const rows = state.months.map(storePL);

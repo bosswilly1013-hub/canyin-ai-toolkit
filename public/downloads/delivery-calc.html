@@ -74,11 +74,15 @@ function render() {
   const shop = state.dishes.filter((dish) => dish.price > 0);
   const shopAvg = shop.length ? shop.reduce((sum, dish) => sum + gross(dish.price, dish.cost), 0) / shop.length : 0;
   const sample = state.dishes[0] || { cost: 40, price: 100 };
-  const fee = state.platforms[0] ? state.platforms[0].fee : 35;
-  const take = sample.price * fee / 100;
-  const left = sample.price - take - sample.cost;
-  document.getElementById("story").textContent = `以「${sample.name || "第一道"}」來看：店內 ${sample.price} 元、成本 ${sample.cost} 元。平台抽 ${fee}% 是 ${Math.round(take)} 元，實拿 ${Math.round(sample.price - take)} 元，扣成本後剩 ${Math.round(left)} 元。`;
-  document.getElementById("story-num").innerHTML = `<div><span>店內毛利</span><b>${Math.round((sample.price - sample.cost))} 元（${(gross(sample.price, sample.cost)*100).toFixed(0)}%）</b></div><div><span>平台抽成</span><b>${Math.round(take)} 元（${fee}%）</b></div><div><span>外送實拿</span><b>${Math.round(sample.price - take)} 元</b></div><div><span>扣成本後</span><b>要賣 ${roundTo(sample.cost / (1 - fee / 100) || 0)} 元才追得上店內算法</b></div>`;
+  const fee = state.platforms[0] ? Number(state.platforms[0].fee) : 35;
+  const feeOk = Number.isFinite(fee) && fee >= 0 && fee < 100;
+  const take = feeOk || (Number.isFinite(fee) && fee >= 0) ? sample.price * fee / 100 : null;
+  const left = take == null ? null : sample.price - take - sample.cost;
+  const cover = feeOk && sample.price > 0 ? roundTo(sample.cost / (1 - fee / 100)) : null;
+  document.getElementById("story").textContent = take == null
+    ? `以「${sample.name || "第一道"}」來看：抽成不是有效的百分比，外送價先算不出來。`
+    : `以「${sample.name || "第一道"}」來看：店內 ${sample.price} 元、成本 ${sample.cost} 元。平台抽 ${fee}% 是 ${Math.round(take)} 元，實拿 ${Math.round(sample.price - take)} 元，扣成本後剩 ${Math.round(left)} 元。`;
+  document.getElementById("story-num").innerHTML = `<div><span>店內毛利</span><b>${sample.price > 0 ? Math.round(sample.price - sample.cost) + " 元（" + (gross(sample.price, sample.cost)*100).toFixed(0) + "%）" : "—"}</b></div><div><span>平台抽成</span><b>${take == null ? "—" : Math.round(take) + " 元（" + fee + "%）"}</b></div><div><span>外送實拿</span><b>${take == null ? "—" : Math.round(sample.price - take) + " 元"}</b></div><div><span>扣成本後</span><b>${cover == null ? "算不出來" : "要賣 " + cover + " 元才追得上店內算法"}</b></div>`;
   document.getElementById("platforms").innerHTML = state.platforms.map((platform, index) => `<div class="grid3" style="grid-template-columns:1fr 120px auto;align-items:end;margin-bottom:8px"><label class="f">平台名稱<input data-name="${index}" value="${platform.name}"></label><label class="f">抽成 %<input data-fee="${index}" type="number" value="${platform.fee}"></label><button type="button" data-delp="${index}">×</button></div>`).join("");
   let loss = 0, mineCount = 0, mineGross = 0;
   state.dishes.forEach((dish) => state.platforms.forEach((platform) => {
@@ -89,22 +93,23 @@ function render() {
     mineGross += gross(net, dish.cost);
     if (net < dish.cost) loss += 1;
   }));
-  document.getElementById("kpis").innerHTML = `<div><small>店內平均毛利率</small><b>${(shopAvg*100).toFixed(1)}%</b><span>共 ${shop.length} 道</span></div>
-    <div><small>照原價上外送，平台抽完</small><b>${((shopAvg * (1 - fee / 100) - fee / 100) * 100).toFixed(1)}%</b><span>用第一個平台的抽成粗估</span></div>
+  const afterFee = shop.length && feeOk ? ((shopAvg * (1 - fee / 100) - fee / 100) * 100) : null;
+  document.getElementById("kpis").innerHTML = `<div><small>店內平均毛利率</small><b>${shop.length ? (shopAvg*100).toFixed(1) + "%" : "—"}</b><span>共 ${shop.length} 道</span></div>
+    <div><small>照原價上外送，平台抽完</small><b>${afterFee == null || !Number.isFinite(afterFee) ? "—" : afterFee.toFixed(1) + "%"}</b><span>用第一個平台的抽成粗估</span></div>
     <div><small>你的外送價低於成本</small><b>${loss} 道</b></div>
     <div class="hot"><small>你已填的外送實收毛利</small><b>${mineCount ? (mineGross / mineCount * 100).toFixed(1) : "—"}%</b></div>`;
   const head = `<tr><th>菜名／分類</th><th>成本</th><th>店內價</th><th>店內毛利</th>${state.platforms.map((platform) => `<th>${esc(platform.name)}（抽 ${platform.fee}%）<br>要賣多少</th><th>你的外送價</th><th>實收毛利</th>`).join("")}<th></th></tr>`;
   document.getElementById("grid").innerHTML = head + state.dishes.map((dish, index) => {
     const cells = state.platforms.map((platform) => {
-      const need = dish.cost && platform.fee < 100 ? roundTo(dish.cost / (1 - platform.fee / 100)) : 0;
+      const need = Number.isFinite(dish.cost) && Number.isFinite(Number(platform.fee)) && Number(platform.fee) < 100 ? roundTo(dish.cost / (1 - Number(platform.fee) / 100)) : null;
       const mine = Number((dish.mine || {})[platform.name] || "");
       const net = mine ? mine * (1 - platform.fee / 100) : 0;
       const g = mine ? gross(net, dish.cost) : null;
       const shopG = gross(dish.price, dish.cost);
       const klass = g == null ? "" : g < 0 ? "bad" : g < shopG ? "mid" : "ok";
-      return `<td>${platform.fee >= 100 ? "抽成要小於 100" : (need || "")}</td><td><input data-mine="${index}" data-p="${esc(platform.name)}" type="number" value="${mine || ""}"></td><td class="${klass}">${g == null ? "" : (g*100).toFixed(1) + "%"}</td>`;
+      return `<td>${need == null ? "算不出來" : need}</td><td><input data-mine="${index}" data-p="${esc(platform.name)}" type="number" value="${mine || ""}"></td><td class="${klass}">${g == null || !Number.isFinite(g) ? "—" : (g*100).toFixed(1) + "%"}</td>`;
     }).join("");
-    return `<tr><td><input data-f="name" data-i="${index}" value="${esc(dish.name)}"><br><input data-f="cat" data-i="${index}" value="${esc(dish.cat)}"></td><td><input data-f="cost" data-i="${index}" type="number" value="${dish.cost}"></td><td><input data-f="price" data-i="${index}" type="number" value="${dish.price}"></td><td>${(gross(dish.price, dish.cost)*100).toFixed(1)}%</td>${cells}<td><button type="button" data-del="${index}">刪</button></td></tr>`;
+    return `<tr><td><input data-f="name" data-i="${index}" value="${esc(dish.name)}"><br><input data-f="cat" data-i="${index}" value="${esc(dish.cat)}"></td><td><input data-f="cost" data-i="${index}" type="number" value="${dish.cost}"></td><td><input data-f="price" data-i="${index}" type="number" value="${dish.price}"></td><td>${dish.price > 0 ? (gross(dish.price, dish.cost)*100).toFixed(1) + "%" : "—"}</td>${cells}<td><button type="button" data-del="${index}">刪</button></td></tr>`;
   }).join("");
   document.getElementById("round").value = state.round;
   bind();
