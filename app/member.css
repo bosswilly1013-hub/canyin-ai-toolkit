@@ -69,7 +69,19 @@
 .qc.hl { background: linear-gradient(135deg, rgba(195,240,0,.35), #fff); border-color: #9BC400; }
 .qc .k { font-size: .76rem; color: #999; } .qc .v { font-weight: 700; } .qc .go { color: #6f9000; font-size: .8rem; }
 .qc .prog { height: 6px; background: #f3f3ee; border-radius: 3px; overflow: hidden; } .qc .prog i { display: block; height: 100%; background: linear-gradient(90deg, #C3F000, #FFAA00); }
-.qpromo { border-radius: 14px; padding: 16px; background: linear-gradient(90deg, #12160c, #243018); color: #fff; display: flex; flex-direction: column; gap: 6px; text-decoration: none; }
+.qpromo { position: relative; overflow: hidden; border-radius: 14px; padding: 16px; background: #12160c; color: #fff; display: flex; flex-direction: column; gap: 6px; text-decoration: none; min-height: 112px; }
+.qpromo .art { position: absolute; right: 8px; top: 10px; width: 92px; height: 78px; border-radius: 10px; background: #1c3a28; }
+.qpromo .road { position: absolute; left: 18px; top: 8px; bottom: 8px; width: 8px; border-radius: 8px; background: #C3F000; transform: rotate(18deg); }
+.qpromo .pin { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #FFAA00; }
+.qpromo .p1 { left: 20px; top: 14px; } .qpromo .p2 { left: 48px; top: 36px; } .qpromo .p3 { left: 30px; top: 58px; background: #fff; }
+.spark-dates { display: flex; justify-content: space-between; font-size: .68rem; color: rgba(255,255,255,.55); }
+.thumb .play { position: absolute; inset: 0; margin: auto; width: 46px; height: 46px; border-radius: 50%; background: #C3F000; color: #1A1A16; display: grid; place-items: center; font-weight: 800; }
+.j-intro { background: linear-gradient(135deg, #f4fcd9, #fff); border-radius: 18px; padding: 28px 32px; margin-bottom: 16px; }
+.j-intro em { font-style: normal; color: #e07a00; }
+.metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+.metric-row div { background: #fff; border: 1px solid #e8e8e0; border-radius: 14px; padding: 14px; }
+.metric-row b { display: block; font-size: 1.4rem; }
+.metric-row span { color: #5a5a52; font-size: .8rem; }
 .qpromo .gk { color: #FFAA00; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
 .qpromo .gt { color: #C3F000; font-weight: 800; }
 .qpromo .gs { align-self: flex-start; background: #C3F000; color: #1A1A16; border-radius: 999px; padding: 4px 12px; font-weight: 800; font-size: .8rem; }

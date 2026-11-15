@@ -176,11 +176,6 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
     }
     ping("已複製");
   }
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem(themeKey, next);
-  }
   function logout() {
     localStorage.removeItem(authStorageKey);
     setAuthed(false);
@@ -267,7 +262,6 @@ export function MemberFrame({ page, articles, slug, tab = "milestone" }: { page:
         </nav>
         <span className="sp" />
         <button type="button" className="hbtn menu drawer" onClick={() => setDrawer((value) => !value)}>目錄</button>
-        <button type="button" className="hbtn" onClick={toggleTheme}>{theme === "dark" ? "淺色" : "深色"}</button>
         <button type="button" className="out" onClick={logout}>登出</button>
       </header>
       {page === "home" && !hashSlug && !hashJourney && !hashAbout ? (
@@ -431,7 +425,16 @@ function HomeView(props: {
               <a href="/#/journey"><small>用 AI 看店</small><strong>{daysSince(aiStartDate)} 天</strong><span>看歷程 →</span></a>
               <a href="/#/journey"><small>做了這些系統</small><strong>{SYSTEMS.length} 套</strong><span>公司 {props.company} · 個人 {props.personal}</span></a>
               <a href="/#/journey/footprint"><small>做過的事</small><strong>{EVENTS.length} 件</strong><span>數位足跡 →</span></a>
-              <a href="/#/journey/subs"><small>訂閱人數</small><strong>{props.subsNow}</strong><svg width="120" height="36" aria-hidden="true"><polyline fill="none" stroke="#C3F000" strokeWidth="2" points={props.spark} /></svg></a>
+              <a href="/#/journey/subs"><small>訂閱人數</small><strong>{props.subsNow} 人</strong>
+                <svg width="150" height="42" aria-hidden="true" className="spark">
+                  <polyline fill="none" stroke="#C3F000" strokeWidth="2" points={props.spark} />
+                  {props.spark.split(" ").map((pair) => {
+                    const [x, y] = pair.split(",");
+                    return <circle key={pair} cx={x} cy={y} r="3" fill="#C3F000" />;
+                  })}
+                </svg>
+                <span className="spark-dates"><i>{SUBS[0]?.date}</i><i>{SUBS[SUBS.length - 1]?.date}</i></span>
+              </a>
             </div>
           </section>
           <section className="quick">
@@ -450,10 +453,11 @@ function HomeView(props: {
             ) : (
               <button type="button" className="qc" onClick={() => props.setDrawer(true)}><span className="k">不知道從哪看？</span><span className="v">打開目錄，照主題找</span></button>
             )}
-            <a className="qpromo" href="/#/c/order-columns">
-              <span className="gk">今天就能用</span>
-              <span className="gt">把叫貨表丟進來，算出平常叫多少</span>
-              <span className="gs">打開叫貨 →</span>
+            <a className="qpromo" href="/#/c/tool-route">
+              <span className="art" aria-hidden="true"><i className="road" /><i className="pin p1" /><i className="pin p2" /><i className="pin p3" /></span>
+              <span className="gk">久沃送貨</span>
+              <span className="gt">勾今天要送的店，排出順序</span>
+              <span className="gs">打開路線 →</span>
             </a>
           </section>
         </div>
@@ -594,6 +598,7 @@ function ArticleCard({ article, seen, step }: { article: Article; seen: boolean;
         {step ? <span className="step">STEP {step}</span> : null}
         {isNew(article.date) ? <span className="nw">新</span> : null}
         <span className="seen">✓ 看過</span>
+        {article.video ? <span className="play">▶</span> : null}
         <small>{articleKind(article)}</small>
       </span>
       <span className="body">
@@ -647,8 +652,9 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
   return (
     <div className="journey">
       <div className="j-intro">
-        <h1>AI 歷程</h1>
-        <p>從 {aiStartDate} 起，用 AI 看店 {daysSince(aiStartDate)} 天。系統 {SYSTEMS.length} 套，其中公司 {SYSTEMS.filter((item) => item.kind === "公司").length}、個人 {SYSTEMS.filter((item) => item.kind === "個人").length}。</p>
+        <div className="eyebrow"><span className="pulse" />實戰紀錄 · 持續更新</div>
+        <h1>開店的人，<br /><em>用 AI 做了 {SYSTEMS.length} 套系統</em></h1>
+        <p>從 {aiStartDate} 起，把店裡重複的事做成能打開的工具。每做一套、每踩一次，都記在這裡。</p>
       </div>
       <section className="dash">
         <div className="dash-grid">
@@ -687,7 +693,13 @@ function Journey({ tab }: { tab: "milestone" | "footprint" | "subs" }) {
       ) : null}
       {tab === "subs" ? (
         <>
-          <p>現在 {last} 人。從第一筆到現在增加 {last - first} 人。平均一天約 {((last - first) / days).toFixed(2)} 人。</p>
+          <h2>訂閱人數走勢</h2>
+          <div className="metric-row">
+            <div><b>{last}</b><span>目前人數</span></div>
+            <div><b>+{last - first}</b><span>累計增加</span></div>
+            <div><b>+{((last - first) / days).toFixed(2)}</b><span>平均每天</span></div>
+            <div><b>{SUBS.length}</b><span>紀錄點</span></div>
+          </div>
           <div className="chart">
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={SUBS}><XAxis dataKey="date" /><YAxis /><Tooltip /><Line dataKey="count" stroke="#C3F000" dot={false} /></LineChart>
