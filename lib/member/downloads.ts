@@ -14,7 +14,7 @@ export type DownloadFile = {
 };
 
 export const downloads: DownloadFile[] = [
-  { name: "report.html", href: "/downloads/report.html", kind: "HTML工具", topic: "finance", article: "fi-month", description: "門市十二個月和公司損益。數字存在這台裝置，可匯入匯出。", bytes: 10934, open: "/downloads/report.html" },
+  { name: "report.html", href: "/downloads/report.html", kind: "HTML工具", topic: "finance", article: "fi-month", description: "門市十二個月和公司損益。數字存在這台裝置，可匯入匯出。", bytes: 17063, open: "/downloads/report.html" },
   { name: "flow.html", href: "/downloads/flow.html", kind: "HTML工具", topic: "shop", article: "sh-page", description: "一天的店務順序，可勾選、寫備註、匯出。", bytes: 2878, open: "/downloads/flow.html" },
   { name: "ad-week.xlsx", href: "/downloads/ad-week.xlsx", kind: "其他", topic: "ads", article: "ad-stop", description: "每週素材、花費、到店、停或不停。", bytes: 16238 },
   { name: "audit-ten.pdf", href: "/downloads/audit-ten.pdf", kind: "PDF", topic: "expand", article: "ex-audit", description: "早班稽核怎麼查，一頁。", bytes: 6840 },
@@ -27,8 +27,8 @@ export const downloads: DownloadFile[] = [
   { name: "delivery-calc.html", href: "/downloads/delivery-calc.html", kind: "HTML工具", topic: "tools", article: "delivery-price", description: "外送價試算。數字存在這台裝置。", bytes: 6628, open: "/downloads/delivery-calc.html" },
   { name: "delivery-price.csv", href: "/downloads/delivery-price.csv", kind: "其他", topic: "tools", article: "delivery-price", description: "外送價試算前要填的欄。", bytes: 66, open: "/downloads/delivery-calc.html" },
   { name: "discount-people.csv", href: "/downloads/discount-people.csv", kind: "其他", topic: "mind", article: "discount-people", description: "打折後要多幾位客人才打平。", bytes: 51 },
-  { name: "district.html", href: "/downloads/district.html", kind: "HTML工具", topic: "tools", article: "tool-district", description: "商圈步行圈三百、五百、八百公尺。選擇存在這台裝置。", bytes: 5663, open: "/downloads/district.html" },
-  { name: "floor.html", href: "/downloads/floor.html", kind: "HTML工具", topic: "tools", article: "tool-floor", description: "拖桌子、填走道。不到七十五公分會提醒。位置存在這台裝置。", bytes: 9283, open: "/downloads/floor.html" },
+  { name: "district.html", href: "/downloads/district.html", kind: "HTML工具", topic: "tools", article: "tool-district", description: "商圈步行圈三百、五百、八百公尺。選擇存在這台裝置。", bytes: 12154, open: "/downloads/district.html" },
+  { name: "floor.html", href: "/downloads/floor.html", kind: "HTML工具", topic: "tools", article: "tool-floor", description: "拖桌子、填走道。不到七十五公分會提醒。位置存在這台裝置。", bytes: 19248, open: "/downloads/floor.html" },
   { name: "food-cost.html", href: "/downloads/food-cost.html", kind: "HTML工具", topic: "finance", article: "margin-weekly", description: "一道菜的食材比。存在這台裝置。", bytes: 1478, open: "/downloads/food-cost.html" },
   { name: "food-safety-card.pdf", href: "/downloads/food-safety-card.pdf", kind: "PDF", topic: "finance", article: "fi-safe", description: "食安五項，一頁。", bytes: 7355 },
   { name: "food-safety.xlsx", href: "/downloads/food-safety.xlsx", kind: "其他", topic: "finance", article: "fi-safe", description: "打烊時的食安勾選。", bytes: 16230 },
@@ -71,7 +71,7 @@ export const downloads: DownloadFile[] = [
   { name: "skill-sop.zip", href: "/downloads/skill-sop.zip", kind: "原始碼", topic: "ai", article: "split-sop", description: "只找 SOP 漏洞、不重寫整本的技能。", bytes: 470 },
   { name: "social-calendar.csv", href: "/downloads/social-calendar.csv", kind: "其他", topic: "social", article: "so-cal", description: "一個月十二則的日期和主題。", bytes: 51 },
   { name: "stock-count.xlsx", href: "/downloads/stock-count.xlsx", kind: "其他", topic: "buy", article: "buy-par", description: "庫存盤點：帳上、實盤、差。", bytes: 16221 },
-  { name: "targets.html", href: "/downloads/targets.html", kind: "HTML工具", topic: "mind", article: "mi-target-day", description: "月目標拆成每天、午、晚。存在這台裝置。", bytes: 9153, open: "/downloads/targets.html" },
+  { name: "targets.html", href: "/downloads/targets.html", kind: "HTML工具", topic: "mind", article: "mi-target-day", description: "月目標拆成每天、午、晚。存在這台裝置。", bytes: 9677, open: "/downloads/targets.html" },
   { name: "temp-card.pdf", href: "/downloads/temp-card.pdf", kind: "PDF", topic: "finance", article: "fi-temp", description: "溫度一天兩次的一頁說明。", bytes: 8316 },
   { name: "temp-log.xlsx", href: "/downloads/temp-log.xlsx", kind: "其他", topic: "finance", article: "fi-temp", description: "冰箱溫度一天兩次。", bytes: 16167 },
   { name: "vendor-phone.csv", href: "/downloads/vendor-phone.csv", kind: "其他", topic: "buy", article: "buy-vendor", description: "廠商電話和對帳日。不要貼進對話。", bytes: 58 },

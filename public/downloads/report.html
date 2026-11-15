@@ -3,108 +3,203 @@
 <meta charset="utf-8">
 <title>每月報表</title>
 <style>
-  body { font-family: sans-serif; margin: 0; background: #f6f3ec; color: #14221c; }
-  header { background: #14221c; color: #f4efe6; padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .months button.on { background: #e15a2b; color: #fff; }
-  table { width: 100%; border-collapse: collapse; background: #fffdf8; }
-  td, th { border-bottom: 1px solid #e4ddd0; padding: 4px; font-size: 13px; }
-  .bar { display: inline-block; width: 8px; background: #1d3c34; vertical-align: bottom; }
-  input[type=number] { width: 6rem; }
+  body { margin: 0; font-family: sans-serif; background: #f6f3ec; color: #14221c; }
+  header { background: #14221c; color: #fff; padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .kpi { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 12px; }
+  .kpi div { background: #14221c; color: #fff; border-radius: 12px; padding: 8px 12px; }
+  table { border-collapse: collapse; background: #fffdf8; font-size: 12px; }
+  td, th { border-bottom: 1px solid #e4ddd0; padding: 3px; }
+  input[type=number] { width: 4.6rem; }
+  button.on { background: #e15a2b; color: #fff; }
+  .bar { fill: #1d3c34; } .low { fill: #c4473a; }
 </style>
 <header>
   <b>久沃月報</b>
   <button type="button" id="mode">門市版</button>
   <input id="shop" placeholder="店名">
-  <input id="year" type="number">
+  <input id="year" type="number" style="width:5rem">
   <button type="button" id="exp">匯出 Excel</button>
   <label>匯入 <input id="imp" type="file" accept=".xlsx,.csv"></label>
   <button type="button" id="tpl">空白範本</button>
   <button type="button" id="print">列印</button>
   <button type="button" id="clear">清空</button>
   <button type="button" id="demo">還原範例</button>
+  <span id="note"></span>
 </header>
-<div class="months" id="months" style="padding:8px"></div>
-<div id="body" style="padding:12px"></div>
+<div id="months" style="padding:8px"></div>
+<div class="kpi" id="kpi"></div>
+<div id="tabs" style="padding:0 8px"></div>
+<div id="body" style="padding:8px;overflow:auto"></div>
 <script src="/vendor/xlsx.full.min.js"></script>
 <script src="/vendor/jiuwo-kit.js"></script>
 <script>
-const KEY = "jiuwo.tool.report.v2";
-function monthDemo(index) {
-  const sales = 700000 + index * 15000;
-  return { sales, delivery: Math.round(sales * 0.18), guests: 2400 + index * 20, purchases: Math.round(sales * 0.32), expense: 280000, waste: [{ item: "青菜", reason: "進太多", amount: 800 }] };
+const KEY = "jiuwo.tool.report.v3";
+function blankDay() { return { dine: 0, delivery: 0, guests: 0, buy: 0, cashExp: 0, otherIn: 0, otherOut: 0, register: 0 }; }
+function blankMonth(seed) {
+  return {
+    target: 900000,
+    days: Array.from({ length: 31 }, (_, i) => seed ? { dine: 28000 + (i % 5) * 800, delivery: 6000, guests: 90, buy: i % 3 === 0 ? 8000 : 0, cashExp: 500, otherIn: 0, otherOut: 0, register: 27500 + (i % 5) * 800 } : blankDay()),
+    waste: seed ? [{ item: "青菜", reason: "進太多", qty: 2, amount: 400 }] : [],
+    company: { revenue: 1200000, discount: 20000, begin: 80000, buy: 380000, returns: 8000, end: 90000, variable: [{ name: "包材", amount: 24000 }], fixed: [{ name: "房租", amount: 60000 }, { name: "人事", amount: 240000 }], other: 4000, taxRate: 20 }
+  };
 }
-const DEMO = { mode: "store", shop: "久沃示範店", year: 2026, month: 1, months: Array.from({ length: 12 }, (_, index) => monthDemo(index)), company: { revenue: 1200000, discount: 20000, begin: 80000, buy: 400000, returns: 10000, end: 90000, variable: [{ name: "包材", amount: 30000 }], fixed: [{ name: "房租", amount: 60000 }, { name: "人事", amount: 280000 }], other: 5000, tax: 0 } };
-let state = Object.assign(structuredClone(DEMO), Jiuwo.load(KEY, DEMO));
-if (!state.months) state = structuredClone(DEMO);
+const DEMO = { mode: "store", shop: "久沃示範店", year: 2026, month: 1, tab: "journal", months: Array.from({ length: 12 }, (_, i) => blankMonth(i < 3)) };
+let state = Jiuwo.load(KEY, DEMO);
+if (!state.months || !state.months[0].days) state = structuredClone(DEMO);
+const cur = () => state.months[state.month - 1];
+const prev = () => state.months[state.month - 2] || cur();
+function sum(month, key) { return month.days.reduce((total, day) => total + Number(day[key] || 0), 0); }
+function cash(day) { const expect = Number(day.dine) + Number(day.otherIn) - Number(day.cashExp) - Number(day.otherOut); return { expect, diff: Number(day.register) - expect }; }
+function active(day) { return ["dine","delivery","guests","buy","cashExp","register"].some((key) => Number(day[key])); }
+function storePL(month) {
+  const sales = sum(month, "dine") + sum(month, "delivery");
+  const cogs = sum(month, "buy");
+  const fixed = sum(month, "cashExp") + month.days.reduce((t, day) => t + Number(day.otherOut || 0), 0);
+  const other = sum(month, "otherIn");
+  const profit = sales + other - cogs - fixed;
+  const be = cogs + fixed;
+  return { sales, cogs, fixed, other, profit, be, guests: sum(month, "guests") };
+}
 function render() {
   Jiuwo.save(KEY, state);
   document.getElementById("mode").textContent = state.mode === "store" ? "門市版" : "公司版";
   document.getElementById("shop").value = state.shop;
   document.getElementById("year").value = state.year;
-  document.getElementById("months").innerHTML = state.months.map((month, index) => `<button type="button" class="${state.month===index+1?"on":""}" data-m="${index+1}">${index+1}月${month.sales?"·":""}</button>`).join("") + `<button type="button" id="yearview">年度總覽</button>`;
+  document.getElementById("months").innerHTML = state.months.map((month, index) => `<button type="button" data-m="${index+1}" class="${state.month===index+1?"on":""}">${index+1}${storePL(month).sales?"·":""}</button>`).join("") + `<button type="button" id="yearview" class="${state.month===0?"on":""}">年度總覽</button>`;
   document.querySelectorAll("[data-m]").forEach((button) => button.onclick = () => { state.month = Number(button.dataset.m); render(); });
   document.getElementById("yearview").onclick = () => { state.month = 0; render(); };
-  if (state.mode === "company") return renderCompany();
   if (!state.month) return renderYear();
-  const row = state.months[state.month - 1];
-  const prev = state.months[state.month - 2] || row;
-  const margin = row.sales - row.purchases - row.expense;
-  const breakEven = row.purchases + row.expense;
-  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year}／${state.month}月</h2>
-    <p>營業額 <input data-f="sales" type="number" value="${row.sales}"> 外送 <input data-f="delivery" type="number" value="${row.delivery}"> 來客 <input data-f="guests" type="number" value="${row.guests}"> 進貨 <input data-f="purchases" type="number" value="${row.purchases}"> 費用 <input data-f="expense" type="number" value="${row.expense}"></p>
-    <p>本月淨利 ${margin.toLocaleString()} 元。外送比 ${row.sales ? (row.delivery/row.sales*100).toFixed(1) : 0}%。進貨比 ${row.sales ? (row.purchases/row.sales*100).toFixed(1) : 0}% 。兩平約 ${breakEven.toLocaleString()} 元。安全邊際 ${row.sales ? ((row.sales-breakEven)/row.sales*100).toFixed(1) : 0}%。</p>
-    <p>跟上月營業額差 ${(row.sales - prev.sales).toLocaleString()} 元。</p>
-    <h3>損耗</h3>
-    ${row.waste.map((item, index) => `<p><input data-w="item" data-i="${index}" value="${item.item}"> <select data-w="reason" data-i="${index}">${["進太多","備太多","溫度","客訴"].map((reason) => `<option ${item.reason===reason?"selected":""}>${reason}</option>`).join("")}</select> <input data-w="amount" data-i="${index}" type="number" value="${item.amount}"> <button type="button" data-del="${index}">刪</button></p>`).join("")}
-    <button type="button" id="addw">加一筆損耗</button>
-    <p>損耗率 ${row.sales ? (row.waste.reduce((sum, item) => sum + Number(item.amount||0), 0) / row.sales * 100).toFixed(2) : 0}%。</p>`;
-  document.querySelectorAll("[data-f]").forEach((input) => input.onchange = () => { row[input.dataset.f] = Number(input.value); render(); });
-  document.querySelectorAll("[data-w]").forEach((input) => input.onchange = () => { row.waste[input.dataset.i][input.dataset.w] = input.dataset.w === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
-  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { row.waste.splice(Number(button.dataset.del), 1); render(); });
-  document.getElementById("addw").onclick = () => { row.waste.push({ item: "品項", reason: "進太多", amount: 0 }); render(); };
+  if (state.mode === "company") return renderCompany();
+  const month = cur();
+  const pl = storePL(month);
+  const last = storePL(prev());
+  const matched = month.days.filter((day) => active(day) && cash(day).diff === 0).length;
+  const written = month.days.filter(active).length;
+  document.getElementById("kpi").innerHTML = [
+    ["營業額", pl.sales.toLocaleString()],
+    ["達成率", month.target ? (pl.sales / month.target * 100).toFixed(1) + "%" : "—"],
+    ["淨利", pl.profit.toLocaleString()],
+    ["兩平", Math.round(pl.be).toLocaleString()],
+    ["安全邊際", pl.sales ? ((pl.sales - pl.be) / pl.sales * 100).toFixed(1) + "%" : "—"]
+  ].map(([k, v]) => `<div><small>${k}</small><br><b>${v}</b></div>`).join("") + `<div><small>收銀</small><br><b>對了 ${matched} 天</b><br>有寫 ${written} 天</div>`;
+  document.getElementById("tabs").innerHTML = ["journal","target","waste","pl"].map((id) => `<button type="button" data-tab="${id}" class="${state.tab===id?"on":""}">${{journal:"日記帳",target:"營收與目標",waste:"損耗",pl:"月損益"}[id]}</button>`).join("");
+  document.querySelectorAll("[data-tab]").forEach((button) => button.onclick = () => { state.tab = button.dataset.tab; render(); });
+  if (state.tab === "journal") renderJournal(month);
+  else if (state.tab === "target") renderTarget(month);
+  else if (state.tab === "waste") renderWaste(month);
+  else renderStorePL(month, pl, last);
+}
+function renderJournal(month) {
+  const head = "<tr><th>日</th><th>店內</th><th>外送</th><th>來客</th><th>進貨</th><th>費用付現</th><th>其他收入</th><th>其他支出</th><th>收銀機</th><th>差額</th></tr>";
+  document.getElementById("body").innerHTML = `<table>${head}${month.days.map((day, index) => {
+    const diff = cash(day).diff;
+    return `<tr><td>${index+1}</td>${["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"].map((key) => `<td><input data-d="${index}" data-k="${key}" type="number" value="${day[key]||""}"></td>`).join("")}<td>${active(day) ? diff : ""}</td></tr>`;
+  }).join("")}</table><p>外送不計入收銀機。應有現金＝店內＋其他收入－費用付現－其他支出。差額＝收銀機－應有現金。</p>`;
+  document.querySelectorAll("[data-d]").forEach((input) => input.onchange = () => { month.days[input.dataset.d][input.dataset.k] = Number(input.value || 0); render(); });
+}
+function renderTarget(month) {
+  let runSales = 0, runTarget = 0;
+  const open = month.days.filter(active).length || 1;
+  document.getElementById("body").innerHTML = `<p>本月目標 <input id="target" type="number" value="${month.target}"> 平均每天 ${Math.round(month.target / 31).toLocaleString()} 元</p><table><tr><th>日</th><th>當日營業</th><th>當日目標</th><th>達成</th><th>累計營業</th><th>累計目標</th><th>累計達成</th></tr>` +
+    month.days.map((day, index) => {
+      const sales = Number(day.dine) + Number(day.delivery);
+      const dayTarget = Math.round(month.target / 31);
+      runSales += sales; runTarget += dayTarget;
+      return `<tr><td>${index+1}</td><td>${sales||""}</td><td>${dayTarget}</td><td>${dayTarget? (sales/dayTarget*100).toFixed(0)+"%" : ""}</td><td>${runSales||""}</td><td>${runTarget}</td><td>${runTarget? (runSales/runTarget*100).toFixed(0)+"%" : ""}</td></tr>`;
+    }).join("") + "</table>";
+  document.getElementById("target").onchange = (event) => { month.target = Number(event.target.value); render(); };
+}
+function renderWaste(month) {
+  const sales = storePL(month).sales || 1;
+  const last = prev().waste.reduce((t, row) => t + Number(row.amount||0), 0);
+  const now = month.waste.reduce((t, row) => t + Number(row.amount||0), 0);
+  document.getElementById("body").innerHTML = month.waste.map((row, index) => `<p><input data-w="item" data-i="${index}" value="${row.item}"> <select data-w="reason" data-i="${index}">${["進太多","備太多","溫度","客訴"].map((reason) => `<option ${row.reason===reason?"selected":""}>${reason}</option>`).join("")}</select> 數量 <input data-w="qty" data-i="${index}" type="number" value="${row.qty}"> 金額 <input data-w="amount" data-i="${index}" type="number" value="${row.amount}"> <button type="button" data-del="${index}">刪</button></p>`).join("") +
+    `<button type="button" id="addw">加一筆</button><p>損耗率 ${(now/sales*100).toFixed(2)}%，上月 ${last.toLocaleString()} 元。</p>`;
+  document.querySelectorAll("[data-w]").forEach((input) => input.onchange = () => { month.waste[input.dataset.i][input.dataset.w] = input.dataset.w === "item" || input.dataset.w === "reason" ? input.value : Number(input.value); Jiuwo.save(KEY, state); });
+  document.querySelectorAll("[data-del]").forEach((button) => button.onclick = () => { month.waste.splice(Number(button.dataset.del), 1); render(); });
+  document.getElementById("addw").onclick = () => { month.waste.push({ item: "品項", reason: "進太多", qty: 1, amount: 0 }); render(); };
+}
+function renderStorePL(month, pl, last) {
+  const row = (name, now, before) => `<tr><td>${name}</td><td>${Math.round(now).toLocaleString()}</td><td>${Math.round(before).toLocaleString()}</td><td>${Math.round(now-before).toLocaleString()}</td></tr>`;
+  document.getElementById("body").innerHTML = `<table><tr><th>項目</th><th>本月</th><th>上月</th><th>差</th></tr>
+    ${row("營業額", pl.sales, last.sales)}${row("進貨", pl.cogs, last.cogs)}${row("付現與其他支出", pl.fixed, last.fixed)}${row("其他收入", pl.other, last.other)}${row("淨利", pl.profit, last.profit)}</table>
+    <p>數字從日記帳加總。進貨比 ${pl.sales ? (pl.cogs/pl.sales*100).toFixed(1) : 0}%。</p>`;
 }
 function renderYear() {
-  const max = Math.max(...state.months.map((month) => month.sales), 1);
-  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year} 年度</h2><div style="height:160px;display:flex;align-items:flex-end;gap:8px">${state.months.map((month, index) => `<div><div class="bar" style="height:${month.sales/max*140}px"></div><div>${index+1}</div></div>`).join("")}</div>
-    <table><tr><th>月</th><th>營業額</th><th>外送比</th><th>進貨</th><th>淨利</th></tr>${state.months.map((month, index) => `<tr><td>${index+1}</td><td>${month.sales.toLocaleString()}</td><td>${month.sales?(month.delivery/month.sales*100).toFixed(1):0}%</td><td>${month.purchases.toLocaleString()}</td><td>${(month.sales-month.purchases-month.expense).toLocaleString()}</td></tr>`).join("")}</table>`;
+  const rows = state.months.map(storePL);
+  const max = Math.max(...rows.map((row) => row.sales), 1);
+  const bars = rows.map((row, index) => {
+    const h = row.sales / max * 120;
+    const low = row.sales < row.be;
+    const be = row.be / max * 120;
+    return `<g transform="translate(${index*46},0)"><rect class="${low?"low":"bar"}" x="8" y="${140-h}" width="24" height="${h}"></rect><line x1="4" x2="36" y1="${140-be}" y2="${140-be}" stroke="#e15a2b"/><text x="8" y="156">${index+1}</text></g>`;
+  }).join("");
+  document.getElementById("kpi").innerHTML = "";
+  document.getElementById("tabs").innerHTML = "";
+  document.getElementById("body").innerHTML = `<h2>${state.shop} ${state.year}</h2><svg width="560" height="170">${bars}</svg><p>橘線是該月兩平。低於兩平的月份是紅色。</p><table><tr><th>月</th><th>營業額</th><th>淨利</th><th>兩平</th></tr>${rows.map((row, i) => `<tr><td>${i+1}</td><td>${Math.round(row.sales).toLocaleString()}</td><td>${Math.round(row.profit).toLocaleString()}</td><td>${Math.round(row.be).toLocaleString()}</td></tr>`).join("")}</table>`;
+}
+function companyPL(c) {
+  const net = c.revenue - c.discount;
+  const cogs = c.begin + c.buy - c.returns - c.end;
+  const variable = c.variable.reduce((t, line) => t + Number(line.amount||0), 0);
+  const fixed = c.fixed.reduce((t, line) => t + Number(line.amount||0), 0);
+  const operate = net - cogs - variable - fixed;
+  const before = operate + Number(c.other||0);
+  const tax = before > 0 ? before * (c.taxRate||0) / 100 : 0;
+  return { net, cogs, variable, fixed, operate, before, tax, profit: before - tax, be: cogs + variable + fixed };
 }
 function renderCompany() {
-  const c = state.company;
-  const netSales = c.revenue - c.discount;
-  const cogs = c.begin + c.buy - c.returns - c.end;
-  const gross = netSales - cogs;
-  const variable = c.variable.reduce((sum, line) => sum + Number(line.amount||0), 0);
-  const fixed = c.fixed.reduce((sum, line) => sum + Number(line.amount||0), 0);
-  const operate = gross - variable - fixed;
-  const before = operate + Number(c.other||0);
-  const tax = before > 0 ? before * 0.2 : 0;
-  document.getElementById("body").innerHTML = `<h2>${state.shop} 公司損益</h2>
-    <p>營業收入 <input data-c="revenue" type="number" value="${c.revenue}"> 減項 <input data-c="discount" type="number" value="${c.discount}"> 淨額 ${netSales.toLocaleString()}</p>
-    <p>期初 <input data-c="begin" type="number" value="${c.begin}"> 進貨 <input data-c="buy" type="number" value="${c.buy}"> 退出 <input data-c="returns" type="number" value="${c.returns}"> 期末 <input data-c="end" type="number" value="${c.end}"> 銷貨成本 ${cogs.toLocaleString()} 毛利 ${gross.toLocaleString()}</p>
-    <h3>變動費用</h3>${c.variable.map((line, index) => `<p><input data-v="name" data-i="${index}" value="${line.name}"> <input data-v="amount" data-i="${index}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addv">加變動</button>
-    <h3>固定費用</h3>${c.fixed.map((line, index) => `<p><input data-x="name" data-i="${index}" value="${line.name}"> <input data-x="amount" data-i="${index}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addx">加固定</button>
-    <p>營業淨利 ${operate.toLocaleString()}。營業外 <input data-c="other" type="number" value="${c.other}">。稅前 ${before.toLocaleString()}。所得稅約 ${Math.round(tax).toLocaleString()}。本期損益 ${Math.round(before-tax).toLocaleString()}。</p>
-    <button type="button" id="copy">複製這組費用到備註</button>`;
+  const c = cur().company;
+  const pl = companyPL(c);
+  document.getElementById("kpi").innerHTML = `<div>本期損益<br><b>${Math.round(pl.profit).toLocaleString()}</b></div><div>兩平<br><b>${Math.round(pl.be).toLocaleString()}</b></div>`;
+  document.getElementById("tabs").innerHTML = "";
+  document.getElementById("body").innerHTML = `<p>營業收入 <input data-c="revenue" type="number" value="${c.revenue}"> 減項 <input data-c="discount" type="number" value="${c.discount}"> 淨額 ${pl.net.toLocaleString()}</p>
+    <p>期初存貨 <input data-c="begin" type="number" value="${c.begin}"> 進貨 <input data-c="buy" type="number" value="${c.buy}"> 退出 <input data-c="returns" type="number" value="${c.returns}"> 期末存貨 <input data-c="end" type="number" value="${c.end}"> 銷貨成本 ${pl.cogs.toLocaleString()}</p>
+    <h3>變動費用</h3>${c.variable.map((line, i) => `<p><input data-v="name" data-i="${i}" value="${line.name}"> <input data-v="amount" data-i="${i}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addv">加變動</button>
+    <h3>固定費用</h3>${c.fixed.map((line, i) => `<p><input data-x="name" data-i="${i}" value="${line.name}"> <input data-x="amount" data-i="${i}" type="number" value="${line.amount}"></p>`).join("")}<button type="button" id="addx">加固定</button>
+    <p><button type="button" id="copyfee">複製上個月費用</button></p>
+    <p>營業淨利 ${Math.round(pl.operate).toLocaleString()}。營業外 <input data-c="other" type="number" value="${c.other}">。稅前 ${Math.round(pl.before).toLocaleString()}。所得稅率 <input data-c="taxRate" type="number" value="${c.taxRate}">% ，稅 ${Math.round(pl.tax).toLocaleString()}。本期損益 ${Math.round(pl.profit).toLocaleString()}。</p>`;
   document.querySelectorAll("[data-c]").forEach((input) => input.onchange = () => { c[input.dataset.c] = Number(input.value); render(); });
   document.querySelectorAll("[data-v]").forEach((input) => input.onchange = () => { c.variable[input.dataset.i][input.dataset.v] = input.dataset.v === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
   document.querySelectorAll("[data-x]").forEach((input) => input.onchange = () => { c.fixed[input.dataset.i][input.dataset.x] = input.dataset.x === "amount" ? Number(input.value) : input.value; Jiuwo.save(KEY, state); });
   document.getElementById("addv").onclick = () => { c.variable.push({ name: "新變動", amount: 0 }); render(); };
   document.getElementById("addx").onclick = () => { c.fixed.push({ name: "新固定", amount: 0 }); render(); };
-  document.getElementById("copy").onclick = () => { Jiuwo.copy(c.fixed.map((line) => line.name + " " + line.amount).join("\n")); alert("費用已複製"); };
+  document.getElementById("copyfee").onclick = () => {
+    const source = (state.months[state.month - 2] || cur()).company;
+    c.variable = source.variable.map((line) => ({ ...line }));
+    c.fixed = source.fixed.map((line) => ({ ...line }));
+    render();
+  };
 }
+function renderYearCompanyColors() { /* store year handles both; company months still have days */ }
 document.getElementById("mode").onclick = () => { state.mode = state.mode === "store" ? "company" : "store"; render(); };
-document.getElementById("shop").onchange = (event) => { state.shop = event.target.value; Jiuwo.save(KEY, state); };
-document.getElementById("year").onchange = (event) => { state.year = Number(event.target.value); Jiuwo.save(KEY, state); };
-document.getElementById("exp").onclick = () => Jiuwo.xlsx(state.shop + ".xlsx", [["月","營業額","外送","來客","進貨","費用"], ...state.months.map((month, index) => [index+1, month.sales, month.delivery, month.guests, month.purchases, month.expense])]);
-document.getElementById("tpl").onclick = () => Jiuwo.xlsx("月報範本.xlsx", [["月","營業額","外送","來客","進貨","費用"], ...Array.from({length:12}, (_,i)=>[i+1,0,0,0,0,0])]);
+document.getElementById("shop").onchange = (e) => { state.shop = e.target.value; Jiuwo.save(KEY, state); };
+document.getElementById("year").onchange = (e) => { state.year = Number(e.target.value); Jiuwo.save(KEY, state); };
+function journalRows(month) {
+  return [["日","店內","外送","來客","進貨","費用付現","其他收入","其他支出","收銀機"], ...month.days.map((day, i) => [i+1, day.dine, day.delivery, day.guests, day.buy, day.cashExp, day.otherIn, day.otherOut, day.register])];
+}
+document.getElementById("exp").onclick = () => Jiuwo.xlsx(state.shop + "-" + state.month + "月.xlsx", journalRows(cur()).concat([["損耗品項","原因","數量","金額"], ...cur().waste.map((row) => [row.item, row.reason, row.qty, row.amount])]));
+document.getElementById("tpl").onclick = () => Jiuwo.xlsx("日記帳範本.xlsx", [["日","店內","外送","來客","進貨","費用付現","其他收入","其他支出","收銀機"], ...Array.from({length:31}, (_,i)=>[i+1,0,0,0,0,0,0,0,0])]);
 document.getElementById("imp").onchange = async (event) => {
   const rows = await Jiuwo.read(event.target.files[0]);
-  rows.slice(1, 13).forEach((row, index) => { if (!state.months[index]) return; state.months[index].sales = Number(row[1])||0; state.months[index].delivery = Number(row[2])||0; state.months[index].guests = Number(row[3])||0; state.months[index].purchases = Number(row[4])||0; state.months[index].expense = Number(row[5])||0; });
+  const month = cur();
+  let days = 0, waste = 0;
+  rows.slice(1).forEach((row) => {
+    const day = Number(row[0]);
+    if (day >= 1 && day <= 31 && row.length >= 5) {
+      const item = month.days[day - 1];
+      ["dine","delivery","guests","buy","cashExp","otherIn","otherOut","register"].forEach((key, index) => { if (row[index+1] !== "") item[key] = Number(row[index+1]) || 0; });
+      days += 1;
+    } else if (row[0] && row[3] !== "" && !day) {
+      month.waste.push({ item: row[0], reason: row[1] || "進太多", qty: Number(row[2])||0, amount: Number(row[3])||0 });
+      waste += 1;
+    }
+  });
+  document.getElementById("note").textContent = `已讀回日記帳 ${days} 天、損耗 ${waste} 筆。`;
   render();
-  alert("已讀回 " + Math.min(12, rows.length - 1) + " 個月。");
 };
 document.getElementById("print").onclick = () => window.print();
-document.getElementById("clear").onclick = () => { state.months = Array.from({length:12}, () => ({ sales:0, delivery:0, guests:0, purchases:0, expense:0, waste:[] })); render(); };
+document.getElementById("clear").onclick = () => { state.months[state.month-1] = blankMonth(false); render(); };
 document.getElementById("demo").onclick = () => { state = structuredClone(DEMO); render(); };
 render();
 </script>

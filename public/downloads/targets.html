@@ -99,13 +99,18 @@ function renderSide() {
     ? `<h2>每月 ${Math.round(result.goal).toLocaleString()} 元</h2><p>${note} 成長 ${(result.growth*100).toFixed(1)}%。</p>
       <p>平日每天 ${Math.round(result.weekday).toLocaleString()} 元，約 ${result.guests.toFixed(0)} 位。假日 ${Math.round(result.holiday).toLocaleString()} 元。</p>
       ${state.slots.map((slot) => `<p>${slot.name} ${Math.round(result.weekday * slot.share / 100).toLocaleString()} 元</p>`).join("")}
-      <p>需要來客 ${Math.round(result.needed)}，扣回購和轉介紹後，新客缺口 ${Math.round(result.gap)}。要接觸約 ${Math.round(result.contacts)} 人，獲客成本 ${Math.round(result.cost)} 元。</p>
+      <p>需要來客 ${Math.round(result.needed)}，回購約 ${Math.round(result.repeats)}，轉介紹 ${Math.round(result.referred)}，新客缺口 ${Math.round(result.gap)}。轉換率換算要接觸 ${Math.round(result.contacts)} 人，獲客成本 ${Math.round(result.cost)} 元，召回成本約 ${Math.round(state.regulars * 0.1 * state.recallCost)} 元。下月可望新熟客 ${Math.round(result.gap * state.stick)} 人。</p>
       <div class="bar"><i style="width:${Math.min(100, result.repeats/(result.needed||1)*100)}%;background:#1d3c34"></i><i style="width:${Math.min(100, result.referred/(result.needed||1)*100)}%;background:#c4a15a"></i><i style="flex:1;background:#e15a2b"></i></div>
       <p>綠老客 · 黃轉介紹 · 橘新客</p>`
     : `<h2>每月 ${Math.round(result.goal).toLocaleString()} 元</h2><p>一般日約 ${Math.round(result.day).toLocaleString()} 元，檔期日約 ${Math.round(result.campaign).toLocaleString()} 元。</p>` + state.sources.map((row) => `<p>${row.name} 約 ${Math.round(result.goal * row.share / 100).toLocaleString()} 元，CPA ${row.cpa}</p>`).join("");
 }
 document.getElementById("mode").onclick = () => { state.mode = state.mode === "store" ? "ecom" : "store"; render(); };
-document.getElementById("csv").onclick = () => { const result = compute(); Jiuwo.csv("營業目標.csv", [["目標", result.goal], ["平日每天", Math.round(result.weekday || result.day || 0)]]); };
+document.getElementById("csv").onclick = () => {
+  const result = compute();
+  const rows = [["項目","數字"], ["目標", result.goal], ["平日每天", Math.round(result.weekday || result.day || 0)], ["新客缺口", Math.round(result.gap || 0)], ["獲客成本", Math.round(result.cost || 0)], ["下月新熟客", Math.round((result.gap || 0) * state.stick)]];
+  if (state.mode === "ecom") state.sources.forEach((row) => rows.push([row.name + " CPA", row.cpa]));
+  Jiuwo.csv("營業目標.csv", rows);
+};
 document.getElementById("print").onclick = () => window.print();
 document.getElementById("clear").onclick = () => { Object.keys(DEMO).forEach((key) => { if (typeof DEMO[key] === "number") state[key] = 0; }); render(); };
 document.getElementById("demo").onclick = () => { Jiuwo.clear(KEY); state = structuredClone(DEMO); render(); };
