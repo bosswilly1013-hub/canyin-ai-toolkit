@@ -54,7 +54,7 @@
           <li>搜尋地標，或直接拖地圖上的點。</li>
           <li>選 300、500 或 800 公尺。</li>
           <li>右邊數字是戶政人口，不是即時人潮。</li>
-          <li>店家清單若連不上，會先用兩家示範店。</li>
+          <li>超商用內建名冊，照你畫的圓來數。餐飲查地圖，查失敗也不會改成示範店。</li>
         </ol>
       </section>
       <section class="help" id="stats"><p>正在讀村里人口…</p></section>
@@ -138,18 +138,42 @@ function samplePlaces() {
   return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001, sample: true }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015, sample: true }];
 }
 const CONV_RE = /7[\s-]*eleven|familymart|全家|萊爾富|hi[\s-]*life|ok\s*超商|okmart/i;
-function isConvTags(tags) {
-  if (!tags) return false;
-  if (tags.shop === "convenience" || tags.amenity === "convenience") return true;
-  return CONV_RE.test([tags.brand, tags.name, tags.operator].filter(Boolean).join(" "));
+let convData = null;
+let convPromise = null;
+function loadConvData() {
+  if (convData) return Promise.resolve(convData);
+  if (!convPromise) {
+    convPromise = fetch("/data/convenience-tw.json", { signal: AbortSignal.timeout(15000) }).then((response) => {
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    }).then((json) => {
+      convData = json;
+      return json;
+    }).catch((error) => {
+      convPromise = null;
+      throw error;
+    });
+  }
+  return convPromise;
 }
-function shopQuery() {
-  const food = Math.min(500, Math.max(200, Number(radius) || 300));
-  const conv = Math.min(1000, Math.max(800, Number(radius) || 800));
+function localConvenience() {
+  const rows = convData && Array.isArray(convData.s) ? convData.s : [];
+  const brands = convData && Array.isArray(convData.b) ? convData.b : ["其他", "7-ELEVEN", "全家", "萊爾富", "OK"];
+  const cap = Number(radius) || 500;
+  const found = [];
+  for (const row of rows) {
+    const lat = Number(row[0]);
+    const lng = Number(row[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || meters(center, { lat, lng }) > cap) continue;
+    found.push({ name: brands[row[2]] || "其他", kind: "超商", lat, lng });
+  }
+  return found;
+}
+function foodQuery() {
+  const food = Math.min(800, Math.max(200, Number(radius) || 300));
   const lat = Number(center.lat).toFixed(6);
   const lng = Number(center.lng).toFixed(6);
-  const brand = "7-ELEVEN|7-Eleven|FamilyMart|全家|萊爾富|Hi-Life|OK超商";
-  return `[out:json][timeout:18];(nwr["shop"="convenience"](around:${conv},${lat},${lng});nwr["amenity"="convenience"](around:${conv},${lat},${lng});nwr["brand"~"${brand}",i](around:${conv},${lat},${lng});nwr["name"~"${brand}",i](around:${conv},${lat},${lng});nwr["amenity"~"^(restaurant|cafe|fast_food)$"](around:${food},${lat},${lng}););out center 40;`;
+  return `[out:json][timeout:12];(nwr["amenity"~"^(restaurant|cafe|fast_food)$"](around:${food},${lat},${lng}););out center 25;`;
 }
 function readShops(json) {
   const elements = json && Array.isArray(json.elements) ? json.elements : null;
@@ -158,21 +182,39 @@ function readShops(json) {
     const lat = item.lat || (item.center && item.center.lat);
     const lng = item.lon || (item.center && item.center.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return { name: item.tags.name, kind: isConvTags(item.tags) ? "超商" : "餐飲", lat, lng };
+    const blob = [item.tags.brand, item.tags.name, item.tags.operator].filter(Boolean).join(" ");
+    const conv = item.tags.shop === "convenience" || item.tags.amenity === "convenience" || CONV_RE.test(blob);
+    return { name: item.tags.name, kind: conv ? "超商" : "餐飲", lat, lng };
   }).filter(Boolean);
 }
 async function askMirror(url, query) {
   const encoded = "data=" + encodeURIComponent(query);
-  let response = await fetch(url + "?" + encoded, { signal: AbortSignal.timeout(12000) });
-  if (response.status === 405 || response.status === 406) {
-    response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: encoded, signal: AbortSignal.timeout(12000) });
+  let lastError = new Error("overpass");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let response = await fetch(url + "?" + encoded, { signal: AbortSignal.timeout(8000) });
+      if (response.status === 405 || response.status === 406) {
+        response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: encoded, signal: AbortSignal.timeout(8000) });
+      }
+      if (response.ok) return readShops(await response.json());
+      lastError = new Error(String(response.status));
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 600));
   }
-  if (response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504) {
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    response = await fetch(url + "?" + encoded, { signal: AbortSignal.timeout(12000) });
-  }
-  if (!response.ok) throw new Error(String(response.status));
-  return readShops(await response.json());
+  throw lastError;
+}
+async function foodFromOverpass() {
+  const query = foodQuery();
+  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+  const jobs = mirrors.map((url) => askMirror(url, query).catch(() => null));
+  const rows = await Promise.race([
+    Promise.all(jobs),
+    new Promise((resolve) => setTimeout(() => resolve([]), 10000))
+  ]);
+  if (!Array.isArray(rows)) return [];
+  return rows.find((list) => list && list.length) || [];
 }
 async function loadPlaces() {
   const ticket = ++placeTicket;
@@ -184,26 +226,33 @@ async function loadPlaces() {
     if (data && saved.mode !== "admin") drawWalk();
   };
   show([], "正在向地圖查附近店家。", "loading");
-  const query = shopQuery();
-  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
-  const overpassP = new Promise((resolve) => {
-    let pending = mirrors.length;
-    let best = [];
-    mirrors.forEach((url) => {
-      askMirror(url, query).then((found) => {
-        if (found && found.length && !best.length) { best = found; resolve(best); }
-      }).catch(() => {}).finally(() => { if (--pending === 0) resolve(best); });
-    });
-  });
-  const namedP = shopsFromNominatim().catch(() => []);
-  const [overpass, named] = await Promise.all([
-    Promise.race([overpassP, new Promise((resolve) => setTimeout(() => resolve([]), 14000))]),
-    namedP
-  ]);
+  let local = [];
+  let localOk = false;
+  try {
+    await loadConvData();
+    local = localConvenience();
+    localOk = true;
+  } catch (error) { localOk = false; }
   if (ticket !== placeTicket) return;
-  const merged = mergePlaces(overpass, named);
+  if (localOk) show(local, "", "live");
+  let food = [];
+  try { food = await foodFromOverpass(); } catch (error) { food = []; }
+  if (ticket !== placeTicket) return;
+  if (!food.length) {
+    try { food = await shopsFromNominatim(); } catch (error) { food = []; }
+  }
+  if (ticket !== placeTicket) return;
+  let conv = local;
+  if (!localOk) {
+    try { conv = (await shopsFromNominatim(true)).filter((place) => place.kind === "超商"); } catch (error) { conv = []; }
+  }
+  const merged = mergePlaces(conv, food);
   if (merged.length) {
     show(merged, "", "live");
+    return;
+  }
+  if (localOk) {
+    show([], "", "live");
     return;
   }
   show(samplePlaces(), "附近店家這次沒有連上。下面兩家是示範，只用於估算。人口仍是戶政資料。", "sample");
@@ -219,23 +268,25 @@ function mergePlaces(a, b) {
   }
   return out;
 }
-async function shopsFromNominatim() {
+async function shopsFromNominatim(includeConvenience) {
   const span = 900;
   const dLat = span / 111000;
   const dLng = span / (111000 * Math.cos(Number(center.lat) * Math.PI / 180));
   const viewbox = [center.lng - dLng, Number(center.lat) + dLat, center.lng + dLng, Number(center.lat) - dLat].join(",");
   const jobs = [
-    ["q=" + encodeURIComponent("[shop=convenience]"), "超商", 1000],
-    ["q=" + encodeURIComponent("7-ELEVEN"), "超商", 1000],
-    ["q=" + encodeURIComponent("FamilyMart"), "超商", 1000],
-    ["q=" + encodeURIComponent("全家"), "超商", 1000],
-    ["q=" + encodeURIComponent("萊爾富"), "超商", 1000],
-    ["q=" + encodeURIComponent("Hi-Life"), "超商", 1000],
-    ["q=" + encodeURIComponent("OK超商"), "超商", 1000],
     ["amenity=restaurant", "餐飲", 550],
     ["amenity=cafe", "餐飲", 550],
     ["amenity=fast_food", "餐飲", 550]
   ];
+  if (includeConvenience) {
+    jobs.unshift(
+      ["q=" + encodeURIComponent("[shop=convenience]"), "超商", 1000],
+      ["q=" + encodeURIComponent("7-ELEVEN"), "超商", 1000],
+      ["q=" + encodeURIComponent("全家"), "超商", 1000],
+      ["q=" + encodeURIComponent("萊爾富"), "超商", 1000],
+      ["q=" + encodeURIComponent("OK超商"), "超商", 1000]
+    );
+  }
   const found = [];
   const seen = new Set();
   for (const [query, kind, limit] of jobs) {
@@ -314,7 +365,7 @@ function fillDist() {
 }
 async function boot() {
   data = await (await fetch("/downloads/villages.json")).json();
-  document.getElementById("src").textContent = data.source + " 店家：OpenStreetMap Overpass。地址：站內地名與 Nominatim。金門、連江沒有同版村里界。桃園升格後，舊界只對上部分區。";
+  document.getElementById("src").textContent = data.source + " 超商：OpenStreetMap 台灣便利商店名冊。餐飲：Overpass，失敗再查地名。地址：站內地名與 Nominatim。金門、連江沒有同版村里界。桃園升格後，舊界只對上部分區。";
   if (!data.cities[saved.city]) saved.city = "高雄市";
   fillCities();
   document.getElementById("city").onchange = (event) => { saved.city = event.target.value; fillDist(); if (saved.mode === "admin") drawAdmin(); else drawWalk(); };
