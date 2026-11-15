@@ -132,30 +132,57 @@ function pyramid(local, city) {
   return data.bands.map((name, i) => `<div class="pyr"><i style="width:${local[i]/lt*100}%"></i><span>${name}</span><i style="width:${city[i]/ct*100}%;background:#c4a15a"></i></div>`).join("") + "<p>左：圈內。右：全市戶政年齡。</p>";
 }
 let placeNote = "";
+let placeTicket = 0;
 function samplePlaces() {
   return [{ name: "示範麵館", kind: "餐飲", lat: center.lat + 0.002, lng: center.lng + 0.001 }, { name: "示範超商", kind: "超商", lat: center.lat - 0.001, lng: center.lng + 0.0015 }];
 }
-async function loadPlaces() {
-  const fallback = samplePlaces();
-  places = fallback;
-  placeNote = "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。";
-  if (data) drawWalk();
-  const query = `[out:json][timeout:12];(node["amenity"~"restaurant|cafe|fast_food|convenience"](around:${radius},${center.lat},${center.lng}););out 30;`;
-  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter"];
-  for (const url of mirrors) {
-    try {
-      const response = await fetch(url, { method: "POST", body: query, signal: AbortSignal.timeout(8000) });
-      if (!response.ok) continue;
-      const json = await response.json();
-      const found = (json.elements || []).filter((item) => item.tags && item.tags.name).map((item) => ({ name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat: item.lat, lng: item.lon }));
-      if (found.length) { places = found; placeNote = ""; if (data) drawWalk(); return; }
-    } catch (error) { /* try the next mirror */ }
+function ensureShopEstimate() {
+  const samples = samplePlaces();
+  if (!places.length) {
+    places = samples;
+    placeNote = "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
+    return;
   }
-  places = samplePlaces();
-  placeNote = "附近店家暫時查不到。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
-  if (data) drawWalk();
+  if (!places.some((place) => place.kind === "超商")) {
+    places = places.concat(samples.filter((place) => place.kind === "超商"));
+    if (!String(placeNote).includes("示範")) placeNote = (placeNote ? placeNote + " " : "") + "這圈沒有超商，已加一家示範超商來估。";
+  }
+}
+async function loadPlaces() {
+  const ticket = ++placeTicket;
+  const fallback = samplePlaces();
+  const show = (list, note) => {
+    if (ticket !== placeTicket) return;
+    places = list.length ? list : fallback;
+    placeNote = list.length ? note : "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。";
+    if (!list.length) places = fallback;
+    if (data && saved.mode !== "admin") drawWalk();
+  };
+  show(fallback, "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。");
+  const query = `[out:json][timeout:8];(node["amenity"~"restaurant|cafe|fast_food|convenience"](around:${radius},${center.lat},${center.lng}););out 20;`;
+  const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.openstreetmap.fr/api/interpreter"];
+  let named = [];
+  for (const url of mirrors) {
+    if (ticket !== placeTicket) return;
+    try {
+      const response = await fetch(url, { method: "POST", body: query, headers: { Accept: "application/json" }, signal: AbortSignal.timeout(5000) });
+      if (ticket !== placeTicket) return;
+      if (!response.ok) continue;
+      let json = null;
+      try { json = await response.json(); } catch (error) { continue; }
+      const elements = json && Array.isArray(json.elements) ? json.elements : [];
+      const found = elements.filter((item) => item && item.tags && item.tags.name).map((item) => ({ name: item.tags.name, kind: item.tags.amenity === "convenience" ? "超商" : "餐飲", lat: item.lat, lng: item.lon }));
+      if (!found.length) continue;
+      named = found;
+      break;
+    } catch (error) { /* empty body, 406, timeout: try the next mirror */ }
+  }
+  if (ticket !== placeTicket) return;
+  if (named.length) show(named, "");
+  else show([], "附近店家沒有回名單（空的或連不上）。下面兩家是示範，用來估每家超商大約服務多少人。人口仍是戶政資料。");
 }
 function drawWalk() {
+  ensureShopEstimate();
   layer.clearLayers();
   circle.setLatLng([center.lat, center.lng]);
   circle.setRadius(radius);
@@ -215,8 +242,10 @@ async function boot() {
   document.getElementById("metric").onchange = (event) => { saved.metric = event.target.value; if (saved.mode === "admin") drawAdmin(); };
   document.getElementById("op").onchange = () => { if (saved.mode === "admin") drawAdmin(); };
   document.getElementById("limit").onchange = () => { if (saved.mode === "admin") drawAdmin(); };
+  places = samplePlaces();
+  placeNote = "附近店家還在查。先用兩家示範店估每家超商大約服務多少人。";
   if (saved.mode === "admin") drawAdmin(); else drawWalk();
-  loadPlaces().then(() => { if (saved.mode !== "admin") drawWalk(); });
+  loadPlaces();
   setTimeout(() => map.invalidateSize(), 200);
 }
 document.getElementById("mode").onclick = () => {

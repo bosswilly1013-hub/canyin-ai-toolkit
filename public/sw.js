@@ -1,4 +1,4 @@
-const CACHE = "jiuwo-member-v2";
+const CACHE = "jiuwo-member-v3";
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
@@ -12,6 +12,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (event.request.mode === "navigate") return;
+  if (url.pathname.startsWith("/downloads/") || url.pathname.endsWith(".html") || url.pathname.endsWith(".js")) return;
   event.respondWith((async () => {
     try {
       const response = await fetch(event.request);
